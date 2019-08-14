@@ -1,11 +1,11 @@
-__version__ = '2.1.0'
+__version__ = '2.1.1'
 
 '''Module to create a virtual system with an assigned IP, independent
 filesystem, and statuses, must be loaded along with other imports'''
 
+from imports import utils
 import json
 import random
-import utils
 
 #Filetype constants
 TYPE_DIR    = 0
@@ -52,10 +52,11 @@ class System:
 
     '''A virtual system'''
 
-    def __init__(self, IP, OSManu, randomHomeFiles = True):
+    def __init__(self, IP, OSManu, connected, randomHomeFiles = True):
         self.IP = IP
         self.fileSystem = FileSystem(SYSTEM_DEFAULT_FILESYSTEM)
         self.OSManu = OSManu
+        self.connected = connected
 
     def exit(self):
         self.fileSystem.exit()
@@ -257,8 +258,8 @@ class SystemsController:
     
     def __init__(self):
         self.loadDefaultSystems()
-        self.userSystem = random.choice(list(systemDict.keys()))
-        self.currSystem = systemDict[userSystem]
+        self.userSystem = self.getName(self.systemDict['userSystem'].IP)
+        self.currSystem = self.systemDict[self.userSystem]
 
     def loadDefaultSystems(self):
         defaultSystems = json.load(open('data/defaultsystems.json', 'r'))
@@ -266,6 +267,29 @@ class SystemsController:
         self.systemLookup = {} # Like a reverse DNS server
         for sys in defaultSystems:
             IP = utils.randIP()
-            self.systemDict[sys] = System(IP, utils.randOSCompany())
+            self.systemDict[sys] = System(IP, utils.randOSCompany(), defaultSystems[sys]['connected'])
             self.systemLookup[IP] = sys
         return 0
+
+    def getConnectedIPs(self, IP):
+        systemName = self.getName(IP)
+        connectedIPs = []
+        for name in self.systemDict[systemName].connected:
+            connectedIPs.append(self.systemDict[name].IP)
+        return connectedIPs
+
+    def getName(self, IP):
+        if IP not in self.systemLookup:
+            return -1
+        else:
+            return self.systemLookup[IP]
+
+    def switchSystems(self, IP):
+        # -1: IP is not valid
+        ret = self.getName(IP)
+        if ret == -1:
+            return ret
+        else:
+            self.currSystem.fileSystem.exit()
+            self.currSystem = self.systemDict[ret]
+            return 0
