@@ -1,0 +1,26 @@
+{
+	"userSystem": {
+		"connected": [
+			"testSystem1",
+			"testSystem2"
+		]
+	},
+	"testSystem1": {
+		"connected": [
+			"testSystem2",
+			"userSystem"
+		]
+	},
+	"testSystem2": {
+		"connected": [
+			"testSystem1",
+			"userSystem",
+			"testSystem3"
+		]
+	},
+	"testSystem3": {
+		"connected": [
+			"testSystem2"
+		]
+	}
+}

@@ -1,15 +1,9 @@
 __version__ = 'ALPHA 1.0.1'
 
-from imports import (terminal, system, utils, commands)
-import random
+from imports import (utils, terminal, system, commands)
 
-systemDict = {}
 
-IP = utils.randIP()
-systemDict[IP] = system.System(IP, utils.randOSCompany())
-
-userSystem = random.choice(list(systemDict.keys()))
-currSystem = systemDict[userSystem]
+sysCont = system.SystemsController()
 
 terminal = terminal.Terminal()
 terminal.out("Terminal Interpreter v.{}".format(__version__))
@@ -25,6 +19,6 @@ while True:
             terminal.out("Invalid number of parameters!")
         else:
             args = tuple(params[1:])
-            commands.comList[params[0]].run(currSystem, terminal, systemDict, *args)
+            commands.comList[params[0]].run(currSystem, terminal, systemDict, systemLookup, *args)
             terminal.out('')
             continue

@@ -1,7 +1,11 @@
-__version__ = '2.0.1'
+__version__ = '2.1.0'
 
 '''Module to create a virtual system with an assigned IP, independent
-filesystem, and statuses'''
+filesystem, and statuses, must be loaded along with other imports'''
+
+import json
+import random
+import utils
 
 #Filetype constants
 TYPE_DIR    = 0
@@ -246,3 +250,22 @@ class FilePath:
 
     def __getitem__(self, index):
         return self.iterList[index]
+
+class SystemsController:
+
+    '''A wrapper to make systems easier to work with'''
+    
+    def __init__(self):
+        self.loadDefaultSystems()
+        self.userSystem = random.choice(list(systemDict.keys()))
+        self.currSystem = systemDict[userSystem]
+
+    def loadDefaultSystems(self):
+        defaultSystems = json.load(open('data/defaultsystems.json', 'r'))
+        self.systemDict = {}
+        self.systemLookup = {} # Like a reverse DNS server
+        for sys in defaultSystems:
+            IP = utils.randIP()
+            self.systemDict[sys] = System(IP, utils.randOSCompany())
+            self.systemLookup[IP] = sys
+        return 0
