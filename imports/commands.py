@@ -1,4 +1,4 @@
-__version__ = '1.2.0'
+__version__ = '1.2.1'
 
 from imports import system
 
@@ -36,15 +36,15 @@ class ChangeDirCommand:
             }
 
     def run(self, sysCont, terminal, *args):
-        path = system.FilePath(args[0])
-        ret = sysCont.currSystem.fileSystem.changeDir(path)
-        if ret == -1:
+        path = system.FilePath(args[0], sysCont.currSystem.fileSystem)
+        if path.status == -1:
             terminal.out("{} is not a valid path!".format(args[0]))
             return -1
-        elif ret == -2:
+        elif path.status == -2:
             terminal.out("{} is valid but is not a directory!".format(args[0]))
             return -1
         else:
+            sysCont.currSystem.fileSystem.changeDir(path)
             return 0
 
 class OutputCommand:
@@ -56,22 +56,23 @@ class OutputCommand:
             }
 
     def run(self, sysCont, terminal, *args):
-        path = system.FilePath(args[0])
-        ret = sysCont.currSystem.fileSystem.output(path)
-        if ret == -1:
+        dirPath = args[0].split('/')
+        path = system.FilePath('/'.join(dirPath[:-1]), sysCont.currSystem.fileSystem)
+        if path.status == -1:
             terminal.out("{} is not a valid path!".format(args[0]))
             return -1
-        elif ret == -2:
+        elif path.status == -2:
             terminal.out("{} is valid but is not a directory!".format(args[0]))
             return -1
-        elif ret == -3:
+        elif path.status == -3:
             terminal.out("{} does not exist!".format(args[0]))
             return -1
-        elif ret == -4:
+        elif path.status == -4:
             terminal.out("{} is a directory!".format(args[0]))
         else:
-            if ret is not None:
-                terminal.out(ret)
+            out = sysCont.currSystem.fileSystem.output(path, dirPath[-1])
+            if out is not None:
+                terminal.out(out)
             return 0
 
 class ScanCommand:

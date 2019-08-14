@@ -1,4 +1,4 @@
-__version__ = '2.1.1'
+__version__ = '2.1.3'
 
 '''Module to create a virtual system with an assigned IP, independent
 filesystem, and statuses, must be loaded along with other imports'''
@@ -6,37 +6,31 @@ filesystem, and statuses, must be loaded along with other imports'''
 from imports import utils
 import json
 import random
+from enum import Enum
 
 #Filetype constants
-TYPE_DIR    = 0
-TYPE_TEXT   = 1
-TYPE_BINARY = 2
-TYPE_DATA   = 3
-TYPE_SYSTEM = 4
-
-TYPE_NAMES = (
-    'DIR',
-    'TXT',
-    'BIN',
-    'DAT',
-    'SYS'
-    )
+class FileTypes(Enum):
+    DIR = 0
+    TXT = 1
+    BIN = 2
+    DAT = 3
+    SYS = 4
 
 SYSTEM_DEFAULT_FILESYSTEM = {
     'home': {
-        'type': TYPE_DIR,
+        'type': FileTypes.DIR,
         'welcome.txt': {
-            'type': TYPE_TEXT,
+            'type': FileTypes.TXT,
             'content': "Welcome to your new system!"
             }
         },
     'bin': {
-        'type': TYPE_DIR
+        'type': FileTypes.DIR
         },
     'sys': {
-        'type': TYPE_DIR,
+        'type': FileTypes.DIR,
         'boot.sys': {
-            'type': TYPE_SYSTEM,
+            'type': FileTypes.SYS,
             'content': "1100111100100101000101011011101010101100001111010010101\
 0000110100110111010001101001001111111111101001110000111011100010111101111010010\
 1010001000010100011100101111111011111111101000001100110011001100111001110111001\
@@ -92,31 +86,24 @@ class FileSystem:
         terminal.out('Type\tSize\tName\n')
         for item in self.workDirContents:
             if item != 'type':
-                line = TYPE_NAMES[self.workDirContents[item]['type']] + '\t'
+                line = FileTypes(self.workDirContents[item]['type']).name + '\t'
                 if 'content' in self.workDirContents[item]:
                     line += str(len(self.workDirContents[item]['content']))
                 line += '\t' + item
                 terminal.out(line)
         return 0
 
-    def checkIsValidPath(self, path, ignoreLastItem=False):
+    def checkIsValidPath(self, path):
         '''Checks the path provided exists'''
         #  0: path is valid
         # -1: path does not exist
         # -2: path exists but is not a dir
         assert type(path) is FilePath
-        if path.isAbsolute:
-            tempWorkDir = self.getContents()
-        else:
-            tempWorkDir = self.workDirContents
-        if ignoreLastItem:
-            toCheck = path[:-1]
-        else:
-            toCheck = path[:]
-        for count, item in enumerate(toCheck):
+        tempWorkDir = self.getContents()
+        for count, item in enumerate(path):
             if item not in tempWorkDir:
                 return -1
-            elif tempWorkDir[item]['type'] != TYPE_DIR:
+            elif tempWorkDir[item]['type'] != FileTypes.DIR:
                 return -2
             else:
                 tempWorkDir = tempWorkDir[item]
@@ -127,69 +114,39 @@ class FileSystem:
         #        0: Successful
         # -1 to -2: From checkIsValidPath
         assert type(path) is FilePath
-        ret = self.checkIsValidPath(path)
-        if ret < 0:
-            return ret
+        self.workingDirectory = path.iterList.copy()
+        self.workDirContents = self.getContents(self.workingDirectory)
+        return 0
+
+    def make(self, path, fileName, typ, content=None):
+        '''Makes an item of the specified type'''
+        #        0: Successful
+        #       -1: Path already exists
+        assert type(path) is FilePath
+        tempWorkDir = path.iterList.copy()
+        tempWorkDirContents = self.getContents(self.workingDirectory, True)
+        if fileName in tempWorkDirContents:
+            return -1
         else:
-            if path.isAbsolute:
-                self.workingDirectory = path.iterList.copy()
-            else:
-                for item in path:
-                    self.workingDirectory.append(item)
+            tempWorkDirContents[fileName] = {'type': typ}
+            if typ != FileTypes.DIR:
+                tempWorkDirContents[fileName]['content'] = content
             self.workDirContents = self.getContents(self.workingDirectory)
             return 0
 
-    def make(self, path, typ, content=None):
-        '''Makes an item of the specified type'''
-        #        0: Successful
-        # -1 to -2: From checkIsValidPath
-        #       -3: Path already exists
-        assert type(path) is FilePath
-        ret = self.checkIsValidPath(path, True)
-        if ret < 0:
-            return ret
-        else:
-            tempWorkDir = []
-            if path.isAbsolute:
-                tempWorkDir = path.iterList.copy()
-            else:
-                tempWorkDir = self.workingDirectory.copy()
-                for item in path[:-1]:
-                    tempWorkDir.append(item)
-            tempWorkDirContents = self.getContents(self.workingDirectory, True)
-            if path[-1] in tempWorkDirContents:
-                return -3
-            else:
-                tempWorkDirContents[path[-1]] = {'type': typ}
-                if typ != TYPE_DIR:
-                    tempWorkDirContents[path[-1]]['content'] = content
-                self.workDirContents = self.getContents(self.workingDirectory)
-                return 0
-
-    def remove(self, path):
+    def remove(self, path, fileName):
         '''Removes the item at the given path'''
         #        0: Successful
-        # -1 to -2: From checkIsValidPath
-        #       -3: Path doesn't exist
+        #       -1: Path doesn't exist
         assert type(path) is FilePath
-        ret = self.checkIsValidPath(path, True)
-        if ret < 0:
-            return ret
+        tempWorkDir = path.iterList.copy()
+        tempWorkDirContents = self.getContents(tempWorkDir, True)
+        if fileName not in tempWorkDirContents:
+            return -1
         else:
-            tempWorkDir = []
-            if path.isAbsolute:
-                tempWorkDir = path.iterList[:-1].copy()
-            else:
-                tempWorkDir = self.workingDirectory.copy()
-                for item in path[:-1]:
-                    tempWorkDir.append(item)
-            tempWorkDirContents = self.getContents(tempWorkDir, True)
-            if path[-1] not in tempWorkDirContents:
-                return -3
-            else:
-                del tempWorkDirContents[path[-1]]
-                self.correctWorkingDirectory()
-                return 0
+            del tempWorkDirContents[fileName]
+            self.correctWorkingDirectory()
+            return 0
 
     def correctWorkingDirectory(self):
         '''Corrects errors in the working directory caused
@@ -201,31 +158,20 @@ class FileSystem:
             else:
                 tempWorkDirContents = tempWorkDirContents[item].copy()
 
-    def output(self, path):
+    def output(self, path, fileName):
         '''Outputs the contents of the file in the supplied path'''
         #      str: Successful
-        # -1 to -2: From checkIsValidPath
-        #       -3: Path doesn't exist
-        #       -4: Path is a directory
+        #       -1: Path doesn't exist
+        #       -2: Path is a directory
         assert type(path) is FilePath
-        ret = self.checkIsValidPath(path, True)
-        if ret < 0:
-            return ret
+        tempWorkDir = path.iterList.copy()
+        tempWorkDirContents = self.getContents(tempWorkDir)
+        if fileName not in tempWorkDirContents:
+            return -1
+        elif tempWorkDirContents[fileName]['type'] == FileTypes.DIR:
+            return -2
         else:
-            tempWorkDir = []
-            if path.isAbsolute:
-                tempWorkDir = path.iterList[:-1].copy()
-            else:
-                tempWorkDir = self.workingDirectory.copy()
-                for item in path[:-1]:
-                    tempWorkDir.append(item)
-            tempWorkDirContents = self.getContents(tempWorkDir, True)
-            if path[-1] not in tempWorkDirContents:
-                return -3
-            elif tempWorkDirContents[path[-1]]['type'] == TYPE_DIR:
-                return -4
-            else:
-                return tempWorkDirContents[path[-1]]['content']
+            return tempWorkDirContents[fileName]['content']
 
     def exit(self):
         '''Soft inits the system, call this when disconnecting'''
@@ -234,17 +180,28 @@ class FileSystem:
 
 class FilePath:
     
-    def __init__(self, path):
+    def __init__(self, path, fileSystem):
         assert type(path) is str
         self.iterList = []
-        self.isAbsolute = False
-        if path[0] == '/':
+        if len(path) > 0 and path[0] == '/':
             path = path[1:]
-            self.isAbsolute = True
-        self.iterList = path.split('/')
+            self.iterList = path.split('/')
+        else:
+            self.iterList = fileSystem.workingDirectory.copy()
+            for item in path.split('/'):
+                if item == '.':
+                    continue
+                elif item == '..':
+                    if self.iterList:
+                        self.iterList.pop()
+                    else:
+                        continue
+                else:
+                    self.iterList.append(item)
         if self.iterList == ['']:
             self.iterList = []
         self.length = len(self.iterList)
+        self.status = fileSystem.checkIsValidPath(self)
 
     def __iter__(self):
         return (i for i in self.iterList)
