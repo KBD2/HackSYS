@@ -1,4 +1,4 @@
-__version__ = 'ALPHA 2.0.0'
+__version__ = 'ALPHA 2.1.0'
 
 from imports import (utils, terminal, system, commands)
 import sys
