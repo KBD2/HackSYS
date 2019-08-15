@@ -1,4 +1,4 @@
-__version__ = '1.3.0'
+__version__ = '1.3.1'
 
 from imports import system
 
@@ -187,7 +187,6 @@ class CommandController:
                                 terminal.out("Not a valid switch!")
                                 return -1
                         else:
-                            count -= 1
                             break
                     count += 1
                 for switch in comSwitches:
