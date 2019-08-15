@@ -1,4 +1,4 @@
-__version__ = '2.1.3'
+__version__ = '2.1.4'
 
 '''Module to create a virtual system with an assigned IP, independent
 filesystem, and statuses, must be loaded along with other imports'''
@@ -19,28 +19,33 @@ class FileTypes(Enum):
 SYSTEM_DEFAULT_FILESYSTEM = {
     'home': {
         'type': FileTypes.DIR,
-        'welcome.txt': {
-            'type': FileTypes.TXT,
-            'content': "Welcome to your new system!"
+        'content': {
+            'welcome.txt': {
+                'type': FileTypes.TXT,
+                'content': "Welcome to your new system!"
+                }
             }
         },
     'bin': {
-        'type': FileTypes.DIR
+        'type': FileTypes.DIR,
+        'content': {}
         },
     'sys': {
         'type': FileTypes.DIR,
-        'boot.sys': {
-            'type': FileTypes.SYS,
-            'content': "1100111100100101000101011011101010101100001111010010101\
-0000110100110111010001101001001111111111101001110000111011100010111101111010010\
-1010001000010100011100101111111011111111101000001100110011001100111001110111001\
-1110100000011101101001001111111011011101000011100101011100010011011011000001010\
-0001100101001011000101010000110001110110000111010010101111110000011001111011010\
-1111011001001010000001000011011010010000010101010000010111101111001000001010101\
-11101101010011001000100111001100001011101111001101"
+        'content': {
+            'boot.sys': {
+                'type': FileTypes.SYS,
+                'content': "110011110010010100010101101110101010110000111101001\
+0101000011010011011101000110100100111111111110100111000011101110001011110111101\
+0010101000100001010001110010111111101111111110100000110011001100110011100111011\
+1001111010000001110110100100111111101101110100001110010101110001001101101100000\
+1010000110010100101100010101000011000111011000011101001010111111000001100111101\
+1010111101100100101000000100001101101001000001010101000001011110111100100000101\
+010111101101010011001000100111001100001011101111001101"
             }
         }
     }
+}
 
 class System:
 
@@ -69,7 +74,7 @@ class FileSystem:
         '''Gets the contents of an absolute path list'''
         tempWorkDir = self.path # This is the only place self.path should be used
         for direc in direcList:
-            tempWorkDir = tempWorkDir[direc]
+            tempWorkDir = tempWorkDir[direc]['content']
         if reference:
             return tempWorkDir
         else:
@@ -87,7 +92,7 @@ class FileSystem:
         for item in self.workDirContents:
             if item != 'type':
                 line = FileTypes(self.workDirContents[item]['type']).name + '\t'
-                if 'content' in self.workDirContents[item]:
+                if self.workDirContents[item]['type'] != FileTypes.DIR:
                     line += str(len(self.workDirContents[item]['content']))
                 line += '\t' + item
                 terminal.out(line)
@@ -198,8 +203,9 @@ class FilePath:
                         continue
                 else:
                     self.iterList.append(item)
-        if self.iterList == ['']:
-            self.iterList = []
+        for count, item in enumerate(self.iterList):
+            if item == '':
+                del self.iterList[count]
         self.length = len(self.iterList)
         self.status = fileSystem.checkIsValidPath(self)
 
