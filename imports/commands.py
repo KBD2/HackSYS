@@ -1,4 +1,4 @@
-__version__ = '1.4.0'
+__version__ = '1.4.1'
 
 from imports import system
 from colorama import Fore
@@ -14,7 +14,7 @@ class HelpCommand:
 
     def run(self, sysCont, terminal, *args, **kwargs):
         if len(args) == 0:
-            terminal.out("Commands:")
+            terminal.out("Commands:\n")
             for command in comList:
                 terminal.out(command)
             return 0
@@ -45,10 +45,10 @@ class ListCommand:
 
     def run(self, sysCont, terminal, *args, **kwargs):
         tempWorkDirContents = sysCont.currSystem.fileSystem.workDirContents.copy()
-        terminal.out('Type\tSize\tName\n')
         if kwargs['-r']:
             self.outDir(tempWorkDirContents, 0, terminal)
         else:
+            terminal.out('Type\tSize\tName\n')
             for item in tempWorkDirContents:
                 if item != 'type':
                     line = system.FileTypes(tempWorkDirContents[item]['type']).name + '\t'
@@ -170,7 +170,7 @@ class ExitCommand:
 
     def __init__(self):
         self.meta = {
-            'descriptor': "Exits the terminal. Parameters: None",
+            'descriptor': "Exits the terminal.",
             'params': [0,0],
             'switches': None
             }
@@ -207,7 +207,7 @@ class CommandController:
         parts = command.split(' ')
         partCommand = parts[0]
         if partCommand not in comList:
-            terminal.out("Command doesn't exist!", Fore.RED)
+            terminal.out("Command does not exist!", Fore.RED)
             return -1
         else:
             comSwitches = comList[partCommand].meta['switches']
