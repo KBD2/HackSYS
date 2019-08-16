@@ -1,4 +1,4 @@
-__version__ = '2.1.4'
+__version__ = '2.1.5'
 
 '''Module to create a virtual system with an assigned IP, independent
 filesystem, and statuses, must be loaded along with other imports'''
@@ -85,19 +85,6 @@ class FileSystem:
         pathAsString = '/' + '/'.join(self.workingDirectory)
         return pathAsString
 
-    def listDir(self, terminal):
-        '''Outputs the contents of the current directory
-        to the terminal'''
-        terminal.out('Type\tSize\tName\n')
-        for item in self.workDirContents:
-            if item != 'type':
-                line = FileTypes(self.workDirContents[item]['type']).name + '\t'
-                if self.workDirContents[item]['type'] != FileTypes.DIR:
-                    line += str(len(self.workDirContents[item]['content']))
-                line += '\t' + item
-                terminal.out(line)
-        return 0
-
     def checkIsValidPath(self, path):
         '''Checks the path provided exists'''
         #  0: path is valid
@@ -175,8 +162,7 @@ class FileSystem:
             return -1
         elif tempWorkDirContents[fileName]['type'] == FileTypes.DIR:
             return -2
-        else:
-            return tempWorkDirContents[fileName]['content']
+        else:            return tempWorkDirContents[fileName]['content']
 
     def exit(self):
         '''Soft inits the system, call this when disconnecting'''

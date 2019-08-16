@@ -1,18 +1,20 @@
-__version__ = '1.0.3'
+__version__ = '1.1.0'
 
 import sys
 import time
+from colorama import Fore
 
 class Terminal:
-    def out(self, message, slowWrite=True, insertNewline=True):
+    def out(self, message, colCode=Fore.GREEN, slowWrite=True, insertNewline=True):
         assert type(message) is str # stdout only wants str
         if slowWrite:
+            sys.stdout.write(colCode)
             for char in message:
                 sys.stdout.write(char)
                 sys.stdout.flush()
-                #time.sleep(0.01)
+                time.sleep(0.005)
         else:
-            sys.stdout.write(message)
+            sys.stdout.write(colCode + message)
             sys.stdout.flush()
         if insertNewline:
             sys.stdout.write('\n')
@@ -20,9 +22,10 @@ class Terminal:
 
     def get(self, start="", strip=True):
         if start != "":
-            self.out(start, True, False)
+            self.out(start, Fore.GREEN, True, False)
         inpChars = "> "
-        self.out(inpChars, True, False)
+        self.out(inpChars, Fore.GREEN, True, False)
+        self.out('', Fore.WHITE, True, False)
         message = sys.stdin.readline()
         if strip:
             message = message.strip()
