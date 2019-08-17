@@ -3,24 +3,39 @@
 		"connected": [
 			"testSystem1",
 			"testSystem2"
+		],
+		"executables": [
+			"alias.json",
+			"cat.json",
+			"cd.json",
+			"connect.json",
+			"disconnect.json",
+			"echo.json",
+			"exit.json",
+			"help.json",
+			"ls.json",
+			"scan.json"
 		]
 	},
 	"testSystem1": {
 		"connected": [
 			"testSystem2",
 			"userSystem"
-		]
+		],
+		"executables": []
 	},
 	"testSystem2": {
 		"connected": [
 			"testSystem1",
 			"userSystem",
 			"testSystem3"
-		]
+		],
+		"executables": []
 	},
 	"testSystem3": {
 		"connected": [
 			"testSystem2"
-		]
+		],
+		"executables": []
 	}
 }

@@ -1,7 +1,8 @@
-__version__ = '1.5.0'
+__version__ = '1.6.0'
 
 from imports import system
 from colorama import Fore
+import hashlib
 
 class HelpCommand:
     
@@ -226,46 +227,58 @@ class CommandController:
             else:
                 count += 1
         partCommand = parts[0]
-        if partCommand not in comList:
-            terminal.error("Command does not exist!")
+        partCommandFilename = partCommand + '.bin'
+        currFileSystem = sysCont.currSystem.fileSystem.path
+        if 'bin' not in currFileSystem:
+            terminal.error("Cannot find executable directory!")
+            return -1
+        elif partCommand + '.bin' not in currFileSystem['bin']['content']:
+            terminal.error(partCommand + " executable cannot be found!")
             return -1
         else:
-            comSwitches = comList[partCommand].meta['switches']
-            params = []
-            switches = {}
-            count = 1
-            if comSwitches:
-                for part in parts[1:]:
-                    if part[0] == '-':
-                        if part in comSwitches:
-                            switches[part] = True
-                        else:
-                            terminal.error("Not a valid switch!")
-                            return -1
-                    else:
-                        break
-                    count += 1
-                for switch in comSwitches:
-                    if switch not in switches:
-                        switches[switch] = False
-            for part in parts[count:]:
-                if len(part) == 0:
-                    continue
-                elif part[0] == '-':
-                    if not comSwitches:
-                        terminal.error("This command does not have any switches!")
-                        return -1
-                    else:
-                        terminal.error("Switches must come before parameters!")
-                        return -1
-                else:
-                    params.append(part)
-                count += 1
-            if len(params) < comList[partCommand].meta['params'][0] or len(params) > comList[partCommand].meta['params'][1]:
-                terminal.error("Incorrect number of parameters!")
+            execDir = currFileSystem['bin']['content']
+            execHash = hashlib.md5(bytes(execDir[partCommandFilename]['content'], 'ascii')).hexdigest()
+            if execHash not in sysCont.execHashes:
+                terminal.error(partCommandFilename + " is not a valid executable file!")
                 return -1
             else:
-                return comList[partCommand].run(sysCont, terminal, *params, **switches)
+                commandName = sysCont.execHashes[execHash]
+                comSwitches = comList[commandName].meta['switches']
+                params = []
+                switches = {}
+                count = 1
+                if comSwitches:
+                    for part in parts[1:]:
+                        if part[0] == '-':
+                            if part in comSwitches:
+                                switches[part] = True
+                            else:
+                                terminal.error("Not a valid switch!")
+                                return -1
+                        else:
+                            break
+                        count += 1
+                    for switch in comSwitches:
+                        if switch not in switches:
+                            switches[switch] = False
+                for part in parts[count:]:
+                    if len(part) == 0:
+                        continue
+                    elif part[0] == '-':
+                        if not comSwitches:
+                            terminal.error("This command does not have any switches!")
+                            return -1
+                        else:
+                            terminal.error("Switches must come before parameters!")
+                            return -1
+                    else:
+                        params.append(part)
+                    count += 1
+                if len(params) < comList[commandName].meta['params'][0] or len(params) > comList[commandName].meta['params'][1]:
+                    terminal.error("Incorrect number of parameters!")
+                    return -1
+                else:
+                    return comList[commandName].run(sysCont, terminal, *params, **switches)
 
     def handleSpaces(self, string):
         spaceHolder = '§'
@@ -292,6 +305,6 @@ comList = {
     'connect': ConnectCommand(),
     'disconnect': DisconnectCommand(),
     'exit': ExitCommand(),
-    'alias': AliasCommand(),
+    #'alias': AliasCommand(),
     'echo': TerminalOutCommand()
     }
