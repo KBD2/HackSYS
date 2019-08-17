@@ -131,13 +131,13 @@ class ScanCommand:
 
     def run(self, sysCont, terminal, *args, **kwargs):
         connected = sysCont.getConnectedIPs(sysCont.currSystem.IP)
-        terminal.out("IP\t\tName\n")
+        terminal.out("IP\t\tPort\tName\n")
         for item in connected:
             for i in range(random.randint(0,3)):
-                terminal.out(utils.randIP() + '\t' + utils.randSystemName())
-            terminal.out(item + '\t' + sysCont.getName(item))
+                terminal.out(utils.randIP() + '\t' + str(random.randint(0,99999)) + '\t' + utils.randSystemName())
+            terminal.out(item + '\t' + str(random.randint(0,99999)) + '\t' +  sysCont.getName(item))
             for i in range(random.randint(0,3)):
-                terminal.out(utils.randIP() + '\t' + utils.randSystemName())
+                terminal.out(utils.randIP() + '\t' + str(random.randint(0,99999)) + '\t' +  utils.randSystemName())
         return 0
 
 class ConnectCommand:

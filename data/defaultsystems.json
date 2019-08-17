@@ -5,7 +5,6 @@
 			"testSystem2"
 		],
 		"executables": [
-			"alias.json",
 			"cat.json",
 			"cd.json",
 			"connect.json",
