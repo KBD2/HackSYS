@@ -1,4 +1,4 @@
-__version__ = '1.1.0'
+__version__ = '1.1.1'
 
 import sys
 import time
@@ -19,6 +19,7 @@ class Terminal:
         if insertNewline:
             sys.stdout.write('\n')
             sys.stdout.flush()
+        return 0
 
     def get(self, start="", strip=True):
         if start != "":
@@ -30,3 +31,7 @@ class Terminal:
         if strip:
             message = message.strip()
         return message
+
+    def error(self, message):
+        self.out(message, Fore.RED)
+        return 0

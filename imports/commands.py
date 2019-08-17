@@ -1,4 +1,4 @@
-__version__ = '1.4.1'
+__version__ = '1.5.0'
 
 from imports import system
 from colorama import Fore
@@ -21,7 +21,7 @@ class HelpCommand:
         else:
             selected = args[0]
             if selected not in comList:
-                terminal.out("{} is not a command!")
+                terminal.error("{} is not a command!")
                 return -1
             else:
                 metaData =  comList[args[0]].meta
@@ -61,10 +61,10 @@ class ListCommand:
     def outDir(self, conts, tabs, terminal):
         for item in conts:
             if conts[item]['type'] == system.FileTypes.DIR:
-                terminal.out('\t' * tabs + item, Fore.MAGENTA)
+                terminal.out('  ' * tabs + item, Fore.MAGENTA)
                 self.outDir(conts[item]['content'], tabs + 1, terminal)
             else:
-                terminal.out(' ' * tabs + item, Fore.WHITE)
+                terminal.out('  ' * tabs + item, Fore.WHITE)
 
 class ChangeDirCommand:
 
@@ -78,10 +78,10 @@ class ChangeDirCommand:
     def run(self, sysCont, terminal, *args, **kwargs):
         path = system.FilePath(args[0], sysCont.currSystem.fileSystem)
         if path.status == -1:
-            terminal.out("{} is not a valid path!".format(args[0]), Fore.RED)
+            terminal.error("{} is not a valid path!".format(args[0]))
             return -1
         elif path.status == -2:
-            terminal.out("{} is valid but is not a directory!".format(args[0]), Fore.RED)
+            terminal.error("{} is valid but is not a directory!".format(args[0]))
             return -1
         else:
             sysCont.currSystem.fileSystem.changeDir(path)
@@ -100,19 +100,19 @@ class OutputCommand:
         dirPath = args[0].split('/')
         path = system.FilePath('/'.join(dirPath[:-1]), sysCont.currSystem.fileSystem)
         if path.status == -1:
-            terminal.out("{} is not a valid path!".format(args[0]), Fore.RED)
+            terminal.error("{} is not a valid path!".format(args[0]))
             return -1
         elif path.status == -2:
-            terminal.out("{} is valid but is not a directory!".format(args[0]), Fore.RED)
+            terminal.error("{} is valid but is not a directory!".format(args[0]))
             return -1
         else:
             out = sysCont.currSystem.fileSystem.output(path, dirPath[-1])
             if out is not None:
                 if out == -1:
-                    terminal.out("{} does not exist!".format(args[0]), Fore.RED)
+                    terminal.error("{} does not exist!".format(args[0]))
                     return -1
                 elif out == -2:
-                    terminal.out("{} is a directory!".format(args[0]), Fore.RED)
+                    terminal.error("{} is a directory!".format(args[0]))
                     return -1
                 else:
                     terminal.out(out)
@@ -146,7 +146,7 @@ class ConnectCommand:
     def run(self, sysCont, terminal, *args, **kwargs):
         ret = sysCont.switchSystems(args[0])
         if ret == -1:
-            terminal.out("Not a valid IP!", Fore.RED)
+            terminal.error("Not a valid IP!")
             return -1
         else:
             terminal.out(sysCont.currSystem.OSManu)
@@ -189,14 +189,27 @@ class AliasCommand:
 
     def run(self, sysCont, terminal, *args, **kwargs):
         if args[1] not in comList:
-            terminal.out("Command does not exist!", Fore.RED)
+            terminal.error("Command does not exist!")
             return -1
         elif args[0] in comList:
-            terminal.out("That is already a command!", Fore.RED)
+            terminal.error("That is already a command!")
             return -1
         else:
             comList[args[0]] = comList[args[1]]
             return 0
+
+class TerminalOutCommand:
+
+    def __init__(self):
+        self.meta = {
+            'descriptor': "Outputs the given string.",
+            'params': [1,1],
+            'switches': None
+            }
+
+    def run(self, sysCont, terminal, *args, **kwargs):
+        terminal.out(args[0])
+        return 0
 
 class CommandController:
 
@@ -204,10 +217,11 @@ class CommandController:
         pass
 
     def feed(self, command, sysCont, terminal):
-        parts = command.split(' ')
+        command = self.handleSpaces(command)
+        parts = command.split('§')
         partCommand = parts[0]
         if partCommand not in comList:
-            terminal.out("Command does not exist!", Fore.RED)
+            terminal.error("Command does not exist!")
             return -1
         else:
             comSwitches = comList[partCommand].meta['switches']
@@ -223,7 +237,7 @@ class CommandController:
                             if part in comSwitches:
                                 switches[part] = True
                             else:
-                                terminal.out("Not a valid switch!", Fore.RED)
+                                terminal.error("Not a valid switch!")
                                 return -1
                         else:
                             break
@@ -236,19 +250,35 @@ class CommandController:
                     continue
                 elif part[0] == '-':
                     if not comSwitches:
-                        terminal.out("This command does not have any switches!", Fore.RED)
+                        terminal.error("This command does not have any switches!")
                         return -1
                     else:
-                        terminal.out("Switches must come before parameters!", Fore.RED)
+                        terminal.error("Switches must come before parameters!")
                         return -1
                 else:
                     params.append(part)
                 count += 1
             if len(params) < comList[partCommand].meta['params'][0] or len(params) > comList[partCommand].meta['params'][1]:
-                terminal.out("Incorrect number of parameters!", Fore.RED)
+                terminal.error("Incorrect number of parameters!")
                 return -1
             else:
                 return comList[partCommand].run(sysCont, terminal, *params, **switches)
+
+    def handleSpaces(self, string):
+        spaceHolder = '§'
+        lastQuote = None
+        for count, char in enumerate(string):
+            if char == '"' or char == "'":
+                if not lastQuote:
+                    lastQuote = char
+                    string = string[:count] + '§' + string[count + 1:]
+                else:
+                    if lastQuote == char:
+                        lastQuote = None
+                        string = string[:count] + '§' + string[count + 1:]
+            elif char == ' ' and not lastQuote:
+                string = string[:count] + '§' + string[count + 1:]
+        return string
 
 comList = {
     'help': HelpCommand(),
@@ -259,5 +289,6 @@ comList = {
     'connect': ConnectCommand(),
     'disconnect': DisconnectCommand(),
     'exit': ExitCommand(),
-    'alias': AliasCommand()
+    'alias': AliasCommand(),
+    'echo': TerminalOutCommand()
     }

@@ -1,4 +1,4 @@
-__version__ = '2.1.5'
+__version__ = '2.1.6'
 
 '''Module to create a virtual system with an assigned IP, independent
 filesystem, and statuses, must be loaded along with other imports'''
@@ -23,6 +23,15 @@ SYSTEM_DEFAULT_FILESYSTEM = {
             'welcome.txt': {
                 'type': FileTypes.TXT,
                 'content': "Welcome to your new system!"
+                },
+            'cool stuff': {
+                'type': FileTypes.DIR,
+                'content': {
+                    'coolstuff.txt': {
+                        'type': FileTypes.TXT,
+                        'content': "http://www.themostamazingwebsiteontheinternet.com/"
+                        }
+                    }
                 }
             }
         },
@@ -98,7 +107,7 @@ class FileSystem:
             elif tempWorkDir[item]['type'] != FileTypes.DIR:
                 return -2
             else:
-                tempWorkDir = tempWorkDir[item]
+                tempWorkDir = tempWorkDir[item]['content']
         return 0
 
     def changeDir(self, path):
