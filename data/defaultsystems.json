@@ -7,13 +7,13 @@
 		"executables": [
 			"cat.json",
 			"cd.json",
-			"connect.json",
-			"disconnect.json",
+			"rm.json",
 			"echo.json",
 			"exit.json",
 			"help.json",
 			"ls.json",
-			"netstat.json"
+			"netstat.json",
+			"restart.json"
 		]
 	},
 	"testSystem1": {

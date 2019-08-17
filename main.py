@@ -24,8 +24,11 @@ terminal.out(colorama.Style.BRIGHT, colorama.Fore.GREEN, False, False)
 terminal.out("Terminal Interpreter v.{}".format(__version__))
 
 while True:
-    userInput = terminal.get(sysCont.currSystem.IP + sysCont.currSystem.fileSystem.getPath())
-    ret = comCont.feed(userInput, sysCont, terminal)
+    if sysCont.systemDict[sysCont.userSystem].status == system.Statuses.UNBOOTABLE:
+        terminal.error("ERROR: SYSTEM UNBOOTABLE")
+        continue
+    userInput = terminal.get(sysCont.systemDict[sysCont.userSystem].IP + sysCont.systemDict[sysCont.userSystem].fileSystem.getPath())
+    ret = comCont.feed(userInput, sysCont, sysCont.systemDict[sysCont.userSystem], terminal)
     terminal.out('')
     if ret == -99:
         sys.exit()

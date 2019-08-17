@@ -1,4 +1,4 @@
-__version__ = '1.6.0'
+__version__ = '1.7.0'
 
 from imports import (system, utils)
 from colorama import Fore
@@ -14,7 +14,7 @@ class HelpCommand:
             'switches': None
             }
 
-    def run(self, sysCont, terminal, *args, **kwargs):
+    def run(self, sysCont, sys, terminal, *args, **kwargs):
         if len(args) == 0:
             terminal.out("Commands:\n")
             for command in comList:
@@ -45,8 +45,8 @@ class ListCommand:
             'switches': ['-r']
             }
 
-    def run(self, sysCont, terminal, *args, **kwargs):
-        tempWorkDirContents = sysCont.currSystem.fileSystem.workDirContents.copy()
+    def run(self, sysCont, sys, terminal, *args, **kwargs):
+        tempWorkDirContents = sys.fileSystem.workDirContents.copy()
         if kwargs['-r']:
             self.outDir(tempWorkDirContents, 0, terminal)
         else:
@@ -77,8 +77,8 @@ class ChangeDirCommand:
             'switches': None
             }
 
-    def run(self, sysCont, terminal, *args, **kwargs):
-        path = system.FilePath(args[0], sysCont.currSystem.fileSystem)
+    def run(self, sysCont, sys, terminal, *args, **kwargs):
+        path = system.FilePath(args[0], sys.fileSystem)
         if path.status == -1:
             terminal.error("{} is not a valid path!".format(args[0]))
             return -1
@@ -86,7 +86,7 @@ class ChangeDirCommand:
             terminal.error("{} is valid but is not a directory!".format(args[0]))
             return -1
         else:
-            sysCont.currSystem.fileSystem.changeDir(path)
+            sys.fileSystem.changeDir(path)
             return 0
 
 class OutputCommand:
@@ -98,9 +98,9 @@ class OutputCommand:
             'switches': None
             }
 
-    def run(self, sysCont, terminal, *args, **kwargs):
+    def run(self, sysCont, sys, terminal, *args, **kwargs):
         dirPath = args[0].split('/')
-        path = system.FilePath('/'.join(dirPath[:-1]), sysCont.currSystem.fileSystem)
+        path = system.FilePath('/'.join(dirPath[:-1]), sys.fileSystem)
         if path.status == -1:
             terminal.error("{} is not a valid path!".format(args[0]))
             return -1
@@ -108,7 +108,7 @@ class OutputCommand:
             terminal.error("{} is valid but is not a directory!".format(args[0]))
             return -1
         else:
-            out = sysCont.currSystem.fileSystem.output(path, dirPath[-1])
+            out = sys.fileSystem.output(path, dirPath[-1])
             if out is not None:
                 if out == -1:
                     terminal.error("{} does not exist!".format(args[0]))
@@ -129,8 +129,8 @@ class ScanCommand:
             'switches': None
             }
 
-    def run(self, sysCont, terminal, *args, **kwargs):
-        connected = sysCont.getConnectedIPs(sysCont.currSystem.IP)
+    def run(self, sysCont, sys, terminal, *args, **kwargs):
+        connected = sysCont.getConnectedIPs(sys.IP)
         terminal.out("IP\t\tPort\tName\n")
         for item in connected:
             for i in range(random.randint(0,3)):
@@ -140,37 +140,37 @@ class ScanCommand:
                 terminal.out(utils.randIP() + '\t' + str(random.randint(0,99999)) + '\t' +  utils.randSystemName())
         return 0
 
-class ConnectCommand:
+##class ConnectCommand:
+##
+##    def __init__(self):
+##        self.meta = {
+##            'descriptor': "Connects to the supplied IP.",
+##            'params': [1,1],
+##            'switches': None
+##            }
+##
+##    def run(self, sysCont, sys, terminal, *args, **kwargs):
+##        ret = sysCont.switchSystems(args[0])
+##        if ret == -1:
+##            terminal.error("Not a valid IP!")
+##            return -1
+##        else:
+##            terminal.out(sysCont.currSystem.OSManu)
+##            terminal.out("Successfully connected.")
+##            return 0
 
-    def __init__(self):
-        self.meta = {
-            'descriptor': "Connects to the supplied IP.",
-            'params': [1,1],
-            'switches': None
-            }
-
-    def run(self, sysCont, terminal, *args, **kwargs):
-        ret = sysCont.switchSystems(args[0])
-        if ret == -1:
-            terminal.error("Not a valid IP!")
-            return -1
-        else:
-            terminal.out(sysCont.currSystem.OSManu)
-            terminal.out("Successfully connected.")
-            return 0
-
-class DisconnectCommand:
-
-    def __init__(self):
-        self.meta = {
-            'descriptor': "Disconnects to your home system.",
-            'params': [0,0],
-            'switches': None
-            }
-
-    def run(self, sysCont, terminal, *args, **kwargs):
-        sysCont.switchSystems(sysCont.systemDict[sysCont.userSystem].IP)
-        return 0
+##class DisconnectCommand:
+##
+##    def __init__(self):
+##        self.meta = {
+##            'descriptor': "Disconnects to your home system.",
+##            'params': [0,0],
+##            'switches': None
+##            }
+##
+##    def run(self, sysCont, sys, terminal, *args, **kwargs):
+##        sysCont.switchSystems(sysCont.systemDict[sysCont.userSystem].IP)
+##        return 0
 
 class ExitCommand:
 
@@ -181,28 +181,28 @@ class ExitCommand:
             'switches': None
             }
 
-    def run(self, sysCont, terminal, *args, **kwargs):
+    def run(self, sysCont, sys, terminal, *args, **kwargs):
         return -99
 
-class AliasCommand:
-
-    def __init__(self):
-        self.meta = {
-            'descriptor': "Aliases the supplied name to the supplied command.",
-            'params': [2,2],
-            'switches': None
-            }
-
-    def run(self, sysCont, terminal, *args, **kwargs):
-        if args[1] not in comList:
-            terminal.error("Command does not exist!")
-            return -1
-        elif args[0] in comList:
-            terminal.error("That is already a command!")
-            return -1
-        else:
-            comList[args[0]] = comList[args[1]]
-            return 0
+##class AliasCommand:
+##
+##    def __init__(self):
+##        self.meta = {
+##            'descriptor': "Aliases the supplied name to the supplied command.",
+##            'params': [2,2],
+##            'switches': None
+##            }
+##
+##    def run(self, sysCont, sys, terminal, *args, **kwargs):
+##        if args[1] not in comList:
+##            terminal.error("Command does not exist!")
+##            return -1
+##        elif args[0] in comList:
+##            terminal.error("That is already a command!")
+##            return -1
+##        else:
+##            comList[args[0]] = comList[args[1]]
+##            return 0
 
 class TerminalOutCommand:
 
@@ -213,16 +213,58 @@ class TerminalOutCommand:
             'switches': None
             }
 
-    def run(self, sysCont, terminal, *args, **kwargs):
+    def run(self, sysCont, sys, terminal, *args, **kwargs):
         terminal.out(args[0])
         return 0
+
+class RestartCommand:
+
+    def __init__(self):
+        self.meta = {
+            'descriptor': "Restarts the system.",
+            'params': [0,0],
+            'switches': None
+            }
+
+    def run(self, sysCont, sys, terminal, *args, **kwargs):
+        sys.restart()
+        return 0
+
+class FileDeleteCommand:
+
+    def __init__(self):
+        self.meta = {
+            'descriptor': "Deletes the specified file.",
+            'params': [1,1],
+            'switches': None
+            }
+
+    def run(self, sysCont, sys, terminal, *args, **kwargs):
+        name = args[0].split('/')[-1]
+        path = system.FilePath('/'.join(args[0].split('/')[:-1]), sys.fileSystem)
+        if path.status == -1:
+            terminal.error("{} is not a valid path!".format(args[0]))
+            return -1
+        elif path.status == -2:
+            terminal.error("{} is valid but is not a directory!".format(args[0]))
+            return -1
+        else:
+            contents = sys.fileSystem.getContents(path, True)
+            if contents[name]['type'] == system.FileTypes.DIR:
+                terminal.error("{} is a directory!".format(name))
+                return -1
+            else:
+                del contents[name]
+                return 0
 
 class CommandController:
 
     def __init__(self):
         pass
 
-    def feed(self, command, sysCont, terminal):
+    def feed(self, command, sysCont, sys, terminal):
+        if command == '':
+            return 0
         command = self.handleSpaces(command)
         parts = command.split('§')
         count = 0
@@ -233,15 +275,29 @@ class CommandController:
                 count += 1
         partCommand = parts[0]
         partCommandFilename = partCommand + '.bin'
-        currFileSystem = sysCont.currSystem.fileSystem.path
-        if 'bin' not in currFileSystem:
+        userFileSystem = sysCont.systemDict[sysCont.userSystem].fileSystem.path
+        if 'sys' not in userFileSystem:
+            terminal.error("SYSTEM ERROR: CANNOT FIND SYSTEM DIRECTORY")
+            return -1
+        elif userFileSystem['sys']['type'] != system.FileTypes.DIR:
+            terminal.error("SYSTEM ERROR: CANNOT FIND COMMAND EXECUTABLE")
+            return -1
+        elif 'command.sys' not in userFileSystem['sys']['content']:
+            terminal.error("SYSTEM ERROR: CANNOT FIND COMMAND EXECUTABLE")
+            return -1
+        else:
+            commandDir = userFileSystem['sys']['content']['command.sys']
+            commandHash = hashlib.md5(bytes(commandDir['content'], 'ascii')).hexdigest()
+            if commandHash != sysCont.sysSysData['command.sys']['hash']:
+                terminal.error("SYSTEM ERROR: INVALID COMMAND EXECUTABLE")
+        if 'bin' not in userFileSystem:
             terminal.error("Cannot find executable directory!")
             return -1
-        elif partCommand + '.bin' not in currFileSystem['bin']['content']:
+        elif partCommand + '.bin' not in userFileSystem['bin']['content']:
             terminal.error(partCommand + " executable cannot be found!")
             return -1
         else:
-            execDir = currFileSystem['bin']['content']
+            execDir = userFileSystem['bin']['content']
             execHash = hashlib.md5(bytes(execDir[partCommandFilename]['content'], 'ascii')).hexdigest()
             if execHash not in sysCont.execHashes:
                 terminal.error(partCommandFilename + " is not a valid executable file!")
@@ -283,7 +339,7 @@ class CommandController:
                     terminal.error("Incorrect number of parameters!")
                     return -1
                 else:
-                    return comList[commandName].run(sysCont, terminal, *params, **switches)
+                    return comList[commandName].run(sysCont, sysCont.systemDict[sysCont.userSystem], terminal, *params, **switches)
 
     def handleSpaces(self, string):
         spaceHolder = '§'
@@ -307,9 +363,8 @@ comList = {
     'cd': ChangeDirCommand(),
     'cat': OutputCommand(),
     'netstat': ScanCommand(),
-    'connect': ConnectCommand(),
-    'disconnect': DisconnectCommand(),
     'exit': ExitCommand(),
-    #'alias': AliasCommand(),
-    'echo': TerminalOutCommand()
+    'echo': TerminalOutCommand(),
+    'restart': RestartCommand(),
+    'rm': FileDeleteCommand()
     }

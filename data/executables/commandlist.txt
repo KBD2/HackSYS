@@ -1,0 +1,9 @@
+help
+ls
+cd
+cat
+netstat
+exit
+echo
+restart
+rm
