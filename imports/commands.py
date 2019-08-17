@@ -219,6 +219,12 @@ class CommandController:
     def feed(self, command, sysCont, terminal):
         command = self.handleSpaces(command)
         parts = command.split('§')
+        count = 0
+        while count < len(parts):
+            if parts[count] == '':
+                del parts[count]
+            else:
+                count += 1
         partCommand = parts[0]
         if partCommand not in comList:
             terminal.error("Command does not exist!")
@@ -230,17 +236,14 @@ class CommandController:
             count = 1
             if comSwitches:
                 for part in parts[1:]:
-                    if len(part) == 0:
-                        continue
-                    else:
-                        if part[0] == '-':
-                            if part in comSwitches:
-                                switches[part] = True
-                            else:
-                                terminal.error("Not a valid switch!")
-                                return -1
+                    if part[0] == '-':
+                        if part in comSwitches:
+                            switches[part] = True
                         else:
-                            break
+                            terminal.error("Not a valid switch!")
+                            return -1
+                    else:
+                        break
                     count += 1
                 for switch in comSwitches:
                     if switch not in switches:
