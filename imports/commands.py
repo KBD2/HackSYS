@@ -1,8 +1,9 @@
 __version__ = '1.6.0'
 
-from imports import system
+from imports import (system, utils)
 from colorama import Fore
 import hashlib
+import random
 
 class HelpCommand:
     
@@ -130,9 +131,13 @@ class ScanCommand:
 
     def run(self, sysCont, terminal, *args, **kwargs):
         connected = sysCont.getConnectedIPs(sysCont.currSystem.IP)
-        terminal.out("Connected IPs:")
+        terminal.out("IP\t\tName\n")
         for item in connected:
-            terminal.out(item)
+            for i in range(random.randint(0,3)):
+                terminal.out(utils.randIP() + '\t' + utils.randSystemName())
+            terminal.out(item + '\t' + sysCont.getName(item))
+            for i in range(random.randint(0,3)):
+                terminal.out(utils.randIP() + '\t' + utils.randSystemName())
         return 0
 
 class ConnectCommand:
@@ -301,7 +306,7 @@ comList = {
     'ls': ListCommand(),
     'cd': ChangeDirCommand(),
     'cat': OutputCommand(),
-    'scan': ScanCommand(),
+    'netstat': ScanCommand(),
     'connect': ConnectCommand(),
     'disconnect': DisconnectCommand(),
     'exit': ExitCommand(),

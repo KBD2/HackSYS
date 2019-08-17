@@ -1,4 +1,4 @@
-__version__ = '1.0.1'
+__version__ = '1.1.0'
 
 import random
 
@@ -33,6 +33,52 @@ def randOSCompany():
         "Co."
         ]
     return ' '.join([
+        random.choice(possPrefixes),
+        random.choice(possMiddles),
+        random.choice(possSuffixes)
+        ])
+
+def randSystemName():
+    possPrefixes = [
+        "com.",
+        "ext.",
+        "net.",
+        "ftp.",
+        "ssh.",
+        "web."
+        ]
+    possMiddles = [
+        "google.",
+        "apple.",
+        "webserver.",
+        "website.",
+        "application.",
+        "government.",
+        "yahoo.",
+        "foundation."
+        ]
+    possSuffixes = [
+        "4Chan",
+        "Maps",
+        "Connection",
+        "Surveillance",
+        "HiddenCamera",
+        "Suspicious",
+        "NotTheFBI",
+        "127.0.0.1",
+        "Virus",
+        "Backend",
+        "Frontend",
+        "Status",
+        "System",
+        "FreeMovies",
+        "Private",
+        "Hack",
+        "Dark",
+        "Witness",
+        "SCP"
+        ]
+    return ''.join([
         random.choice(possPrefixes),
         random.choice(possMiddles),
         random.choice(possSuffixes)

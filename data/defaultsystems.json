@@ -14,7 +14,7 @@
 			"exit.json",
 			"help.json",
 			"ls.json",
-			"scan.json"
+			"netstat.json"
 		]
 	},
 	"testSystem1": {
