@@ -1,15 +1,13 @@
 __version__ = 'ALPHA 2.2.2'
 
-import sys
+import sys as sysModule
+import time
 
 try:
     import colorama
 except:
     print("You need the colorama module! (python -m pip install colorama)")
     sys.exit()
-
-if 'idlelib.run' in sys.modules:
-    print("You probably want to run this from the command line.")
 
 from imports import (utils, terminal, system, commands)
 colorama.init()
@@ -21,17 +19,30 @@ comCont = commands.CommandController()
 
 terminal = terminal.Terminal()
 terminal.out(colorama.Style.BRIGHT, colorama.Fore.GREEN, False, False)
-terminal.out("Terminal Interpreter v.{}".format(__version__))
+
+if 'idlelib.run' in sysModule.modules:
+    print("You probably want to run this from the command line.")
+else:
+    terminal.out("""
+    ██╗  ██╗ █████╗  ██████╗██╗  ██╗███████╗██╗   ██╗███████╗\n\
+    ██║  ██║██╔══██╗██╔════╝██║ ██╔╝██╔════╝╚██╗ ██╔╝██╔════╝\n\
+    ███████║███████║██║     █████╔╝ ███████╗ ╚████╔╝ ███████╗\n\
+    ██╔══██║██╔══██║██║     ██╔═██╗ ╚════██║  ╚██╔╝  ╚════██║\n\
+    ██║  ██║██║  ██║╚██████╗██║  ██╗███████║   ██║   ███████║\n\
+    ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚══════╝   ╚═╝   ╚══════╝\n\
+    version {}
+    """.format(__version__))
+    time.sleep(2)
+    utils.serverBootSequence(sysCont.userSystem, terminal)
 
 while True:
     if sysCont.userSystem.status == system.Statuses.UNBOOTABLE:
         terminal.error("ERROR: SYSTEM UNBOOTABLE")
-        terminal.get()
-        continue
+        time.sleep(60*60*24)
     userInput = terminal.get(sysCont.userSystem.IP + sysCont.userSystem.fileSystem.getPath())
     ret = comCont.feed(userInput, sysCont, sysCont.userSystem, terminal)
     terminal.out('')
     if ret == -99:
-        sys.exit()
+        sysModule.exit()
     continue
  

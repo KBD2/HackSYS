@@ -5,6 +5,7 @@ from colorama import Fore
 import hashlib
 import random
 import json
+import time
 
 class HelpCommand:
     
@@ -210,7 +211,10 @@ class RestartCommand:
             }
 
     def run(self, sysCont, sys, terminal, *args, **kwargs):
-        sys.restart()
+        terminal.out("Restarting...")
+        sys.restart(sysCont)
+        time.sleep(2)
+        utils.serverBootSequence(sys, terminal)
         return 0
 
 class FileRemoveCommand:

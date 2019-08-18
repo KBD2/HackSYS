@@ -64,7 +64,7 @@ class System:
     def exit(self):
         self.fileSystem.exit()
 
-    def restart(self):
+    def restart(self, sysCont):
         self.exit()
         if 'sys' not in self.fileSystem.path:
             self.status = Statuses.UNBOOTABLE
