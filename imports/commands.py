@@ -116,6 +116,7 @@ class OutputCommand:
             absolute = True
         else:
             absolute = False
+        name = args[0].split('/')[-1]
         dirPath = '/'.join(args[0].split('/')[:-1])
         if absolute and dirPath == '':
             dirPath = '/'
@@ -127,7 +128,7 @@ class OutputCommand:
             terminal.error("{} is valid but is not a directory!".format(args[0]))
             return -1
         else:
-            out = sys.fileSystem.output(path, dirPath[-1])
+            out = sys.fileSystem.output(path, name)
             if out is not None:
                 if out == -1:
                     terminal.error("{} does not exist!".format(args[0]))
