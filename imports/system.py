@@ -1,9 +1,9 @@
-__version__ = '2.3.0'
+__version__ = '2.3.1'
 
 '''Module to create a virtual system with an assigned IP, independent
 filesystem, and statuses, must be loaded along with other imports'''
 
-from imports import utils
+from imports import (utils, commands)
 import json
 import random
 from enum import Enum
@@ -41,22 +41,20 @@ class System:
 
     '''A virtual system'''
 
-    def __init__(self, IP, OSManu, sysData, loadedExecutables, sysSysData, randomHomeFiles = True):
+    def __init__(self, IP, OSManu, sysData, sysSysData, randomHomeFiles = True):
         self.IP = IP
         self.fileSystem = FileSystem(SYSTEM_DEFAULT_FILESYSTEM.copy())
         self.OSManu = OSManu
         self.connected = sysData['connected']
-        binPath = self.fileSystem.path['bin']['content']
         self.status = Statuses.ONLINE
+        self.aliasTable = {}
+        binPath = self.fileSystem.path['bin']['content']
         for item in sysData['executables']:
-            if item not in loadedExecutables:
-                with open('data/executables/' + item, 'r') as execFile:
-                    loadedExecutables[item] = json.load(execFile)
-            execData = loadedExecutables[item]
-            fileName = execData['name'] + '.bin'
-            binPath[fileName] = {
+            fileName = commands.comTable[item]
+            fileContent = commands.getContent(fileName)
+            binPath[item] = {
                 'type': FileTypes.BIN,
-                'content': execData['content']
+                'content': fileContent
                 }
         sysPath = self.fileSystem.path['sys']['content']
         for item in sysSysData:
@@ -233,7 +231,7 @@ class SystemsController:
     
     def __init__(self):
         self.loadDefaultSystems()
-        self.userSystem = self.getName(self.systemDict['userSystem'].IP)
+        self.userSystem = self.systemDict['userSystem']
 
     def loadDefaultSystems(self):
         defaultSystems = json.load(open('data/defaultsystems.json', 'r'))
@@ -241,7 +239,6 @@ class SystemsController:
             'boot.sys': json.load(open('data/system/boot.json', 'r')),
             'command.sys': json.load(open('data/system/command.json', 'r'))
             }
-        self.loadedExecutables = {}
         self.systemDict = {}
         self.systemLookup = {}
         for sys in defaultSystems:
@@ -250,11 +247,9 @@ class SystemsController:
                 IP,
                 utils.randOSCompany(),
                 defaultSystems[sys],
-                self.loadedExecutables,
                 self.sysSysData
                 )
             self.systemLookup[IP] = sys
-        self.execHashes = self.loadExecHashes(self.loadedExecutables)
         return 0
 
     def getConnectedIPs(self, IP):
@@ -269,19 +264,3 @@ class SystemsController:
             return -1
         else:
             return self.systemLookup[IP]
-
-##    def switchSystems(self, IP):
-##        # -1: IP is not valid
-##        ret = self.getName(IP)
-##        if ret == -1:
-##            return ret
-##        else:
-##            self.currSystem.fileSystem.exit()
-##            self.currSystem = self.systemDict[ret]
-##            return 0
-
-    def loadExecHashes(self, execs):
-        loadedHashes = {}
-        for execName in execs:
-            loadedHashes[execs[execName]['hash']] = execs[execName]['name']
-        return loadedHashes

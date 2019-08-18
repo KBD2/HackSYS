@@ -5,15 +5,16 @@
 			"testSystem2"
 		],
 		"executables": [
-			"cat.json",
-			"cd.json",
-			"rm.json",
-			"echo.json",
-			"exit.json",
-			"help.json",
-			"ls.json",
-			"netstat.json",
-			"restart.json"
+			"cat.bin",
+			"cd.bin",
+			"rm.bin",
+			"echo.bin",
+			"exit.bin",
+			"help.bin",
+			"ls.bin",
+			"netstat.bin",
+			"restart.bin",
+			"alias.bin"
 		]
 	},
 	"testSystem1": {

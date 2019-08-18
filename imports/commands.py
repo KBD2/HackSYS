@@ -1,9 +1,10 @@
-__version__ = '1.7.0'
+__version__ = '1.8.0'
 
 from imports import (system, utils)
 from colorama import Fore
 import hashlib
 import random
+import json
 
 class HelpCommand:
     
@@ -23,7 +24,7 @@ class HelpCommand:
         else:
             selected = args[0]
             if selected not in comList:
-                terminal.error("{} is not a command!")
+                terminal.error("{} is not a command!".format(selected))
                 return -1
             else:
                 metaData =  comList[args[0]].meta
@@ -140,38 +141,6 @@ class ScanCommand:
                 terminal.out(utils.randIP() + '\t' + str(random.randint(0,99999)) + '\t' +  utils.randSystemName())
         return 0
 
-##class ConnectCommand:
-##
-##    def __init__(self):
-##        self.meta = {
-##            'descriptor': "Connects to the supplied IP.",
-##            'params': [1,1],
-##            'switches': None
-##            }
-##
-##    def run(self, sysCont, sys, terminal, *args, **kwargs):
-##        ret = sysCont.switchSystems(args[0])
-##        if ret == -1:
-##            terminal.error("Not a valid IP!")
-##            return -1
-##        else:
-##            terminal.out(sysCont.currSystem.OSManu)
-##            terminal.out("Successfully connected.")
-##            return 0
-
-##class DisconnectCommand:
-##
-##    def __init__(self):
-##        self.meta = {
-##            'descriptor': "Disconnects to your home system.",
-##            'params': [0,0],
-##            'switches': None
-##            }
-##
-##    def run(self, sysCont, sys, terminal, *args, **kwargs):
-##        sysCont.switchSystems(sysCont.systemDict[sysCont.userSystem].IP)
-##        return 0
-
 class ExitCommand:
 
     def __init__(self):
@@ -184,25 +153,18 @@ class ExitCommand:
     def run(self, sysCont, sys, terminal, *args, **kwargs):
         return -99
 
-##class AliasCommand:
-##
-##    def __init__(self):
-##        self.meta = {
-##            'descriptor': "Aliases the supplied name to the supplied command.",
-##            'params': [2,2],
-##            'switches': None
-##            }
-##
-##    def run(self, sysCont, sys, terminal, *args, **kwargs):
-##        if args[1] not in comList:
-##            terminal.error("Command does not exist!")
-##            return -1
-##        elif args[0] in comList:
-##            terminal.error("That is already a command!")
-##            return -1
-##        else:
-##            comList[args[0]] = comList[args[1]]
-##            return 0
+class AliasCommand:
+
+    def __init__(self):
+        self.meta = {
+            'descriptor': "Aliases the supplied name to the supplied command.",
+            'params': [2,2],
+            'switches': None
+            }
+
+    def run(self, sysCont, sys, terminal, *args, **kwargs):
+        sys.aliasTable[args[0]] = args[1]
+        return 0
 
 class TerminalOutCommand:
 
@@ -250,7 +212,10 @@ class FileDeleteCommand:
             return -1
         else:
             contents = sys.fileSystem.getContents(path, True)
-            if contents[name]['type'] == system.FileTypes.DIR:
+            if name not in contents:
+                terminal.error("{} does not exist!".format(name))
+                return -1
+            elif contents[name]['type'] == system.FileTypes.DIR:
                 terminal.error("{} is a directory!".format(name))
                 return -1
             else:
@@ -274,72 +239,93 @@ class CommandController:
             else:
                 count += 1
         partCommand = parts[0]
-        partCommandFilename = partCommand + '.bin'
-        userFileSystem = sysCont.systemDict[sysCont.userSystem].fileSystem.path
-        if 'sys' not in userFileSystem:
+        if partCommand in sys.aliasTable:
+            try:
+                return self.feed(sys.aliasTable[partCommand] + ' ' + ' '.join(parts[1:]), sysCont, sys, terminal)
+            except RecursionError:
+                terminal.out("Too much recursion!")
+                return -1
+        partCommandFileName = partCommand + '.bin'
+        userFileSystem = sysCont.userSystem.fileSystem.path
+        workSysWorkDirCont = sys.fileSystem.getContents(sys.fileSystem.workingDirectory)
+        sysPath = system.FilePath('/sys', sys.fileSystem)
+        if sysPath.status < 0:
             terminal.error("SYSTEM ERROR: CANNOT FIND SYSTEM DIRECTORY")
-            return -1
-        elif userFileSystem['sys']['type'] != system.FileTypes.DIR:
-            terminal.error("SYSTEM ERROR: CANNOT FIND COMMAND EXECUTABLE")
             return -1
         elif 'command.sys' not in userFileSystem['sys']['content']:
             terminal.error("SYSTEM ERROR: CANNOT FIND COMMAND EXECUTABLE")
             return -1
         else:
-            commandDir = userFileSystem['sys']['content']['command.sys']
+            commandDir = sys.fileSystem.path['sys']['content']['command.sys']
             commandHash = hashlib.md5(bytes(commandDir['content'], 'ascii')).hexdigest()
             if commandHash != sysCont.sysSysData['command.sys']['hash']:
                 terminal.error("SYSTEM ERROR: INVALID COMMAND EXECUTABLE")
-        if 'bin' not in userFileSystem:
-            terminal.error("Cannot find executable directory!")
-            return -1
-        elif partCommand + '.bin' not in userFileSystem['bin']['content']:
-            terminal.error(partCommand + " executable cannot be found!")
-            return -1
+                return -1
+        currBinPath = system.FilePath('/bin', sys.fileSystem)
+        userBinPath = system.FilePath('/bin', sysCont.userSystem.fileSystem)
+        if currBinPath.status < 0:
+            found = False
+        elif partCommandFileName not in sys.fileSystem.getContents(['bin']):
+            found = False
+        elif sys.fileSystem.getContents(['bin'])[partCommandFileName]['type'] != system.FileTypes.BIN:
+            found = False
         else:
-            execDir = userFileSystem['bin']['content']
-            execHash = hashlib.md5(bytes(execDir[partCommandFilename]['content'], 'ascii')).hexdigest()
-            if execHash not in sysCont.execHashes:
-                terminal.error(partCommandFilename + " is not a valid executable file!")
+            found = True
+            execDir = sys.fileSystem.getContents(['bin'])
+        if not found:
+            if userBinPath.status < 0:
+                terminal.error("Cannot find executable file!")
+                return -1
+            elif partCommandFileName not in sys.fileSystem.getContents(['bin']):
+                terminal.error("Cannot find executable file!")
+                return -1
+            elif sys.fileSystem.getContents(['bin'])[partCommandFileName]['type'] != system.FileTypes.BIN:
+                terminal.error("Cannot find executable file!")
                 return -1
             else:
-                commandName = sysCont.execHashes[execHash]
-                comSwitches = comList[commandName].meta['switches']
-                params = []
-                switches = {}
-                count = 1
-                if comSwitches:
-                    for part in parts[1:]:
-                        if part[0] == '-':
-                            if part in comSwitches:
-                                switches[part] = True
-                            else:
-                                terminal.error("Not a valid switch!")
-                                return -1
+                execDir = sysCont.userSystem.getContents(['bin'])
+        execHash = hashlib.md5(bytes(execDir[partCommandFileName]['content'], 'ascii')).hexdigest()
+        if execHash not in comList:
+            terminal.error(partCommandFilename + " is not a valid executable file!")
+            return -1
+        else:
+            command = comList[execHash]
+            comSwitches = command.meta['switches']
+            params = []
+            switches = {}
+            count = 1
+            if comSwitches:
+                for part in parts[1:]:
+                    if part[0] == '-':
+                        if part in comSwitches:
+                            switches[part] = True
                         else:
-                            break
-                        count += 1
-                    for switch in comSwitches:
-                        if switch not in switches:
-                            switches[switch] = False
-                for part in parts[count:]:
-                    if len(part) == 0:
-                        continue
-                    elif part[0] == '-':
-                        if not comSwitches:
-                            terminal.error("This command does not have any switches!")
-                            return -1
-                        else:
-                            terminal.error("Switches must come before parameters!")
+                            terminal.error("Not a valid switch!")
                             return -1
                     else:
-                        params.append(part)
+                        break
                     count += 1
-                if len(params) < comList[commandName].meta['params'][0] or len(params) > comList[commandName].meta['params'][1]:
-                    terminal.error("Incorrect number of parameters!")
-                    return -1
+                for switch in comSwitches:
+                    if switch not in switches:
+                        switches[switch] = False
+            for part in parts[count:]:
+                if len(part) == 0:
+                    continue
+                elif part[0] == '-':
+                    if not comSwitches:
+                        terminal.error("This command does not have any switches!")
+                        return -1
+                    else:
+                        terminal.error("Switches must come before parameters!")
+                        return -1
                 else:
-                    return comList[commandName].run(sysCont, sysCont.systemDict[sysCont.userSystem], terminal, *params, **switches)
+                    params.append(part)
+                count += 1
+            if len(params) < command.meta['params'][0] or len(params) > command.meta['params'][1]:
+                terminal.error("Incorrect number of parameters!")
+                return -1
+            else:
+                return command.run(sysCont, sys, terminal, *params, **switches)
 
     def handleSpaces(self, string):
         spaceHolder = '§'
@@ -357,14 +343,39 @@ class CommandController:
                 string = string[:count] + '§' + string[count + 1:]
         return string
 
+def getHash(fileName):
+    with open('data/executables/' + fileName) as file:
+        fileData = json.loads(file.read())
+    return fileData['hash']
+
+def getContent(fileName):
+    with open('data/executables/' + fileName) as file:
+        fileData = json.loads(file.read())
+    return fileData['content']
+
 comList = {
-    'help': HelpCommand(),
-    'ls': ListCommand(),
-    'cd': ChangeDirCommand(),
-    'cat': OutputCommand(),
-    'netstat': ScanCommand(),
-    'exit': ExitCommand(),
-    'echo': TerminalOutCommand(),
-    'restart': RestartCommand(),
-    'rm': FileDeleteCommand()
+    getHash('HelpCommand.json'): HelpCommand(),
+    getHash('ListCommand.json'): ListCommand(),
+    getHash('ChangeDirCommand.json'): ChangeDirCommand(),
+    getHash('OutputCommand.json'): OutputCommand(),
+    getHash('ScanCommand.json'): ScanCommand(),
+    getHash('ExitCommand.json'): ExitCommand(),
+    getHash('TerminalOutCommand.json'): TerminalOutCommand(),
+    getHash('RestartCommand.json'): RestartCommand(),
+    getHash('FileDeleteCommand.json'): FileDeleteCommand(),
+    getHash('AliasCommand.json'): AliasCommand()
+    }
+
+#For use when making a system
+comTable = {
+    'help.bin':     'HelpCommand.json',
+    'ls.bin':       'ListCommand.json',
+    'cd.bin':       'ChangeDirCommand.json',
+    'cat.bin':      'OutputCommand.json',
+    'netstat.bin':  'ScanCommand.json',
+    'exit.bin':     'ExitCommand.json',
+    'echo.bin':     'TerminalOutCommand.json',
+    'restart.bin':  'RestartCommand.json',
+    'rm.bin':       'FileDeleteCommand.json',
+    'alias.bin':    'AliasCommand.json'
     }
