@@ -8,13 +8,15 @@
 			"cat.bin",
 			"cd.bin",
 			"rm.bin",
+			"rmdir.bin",
 			"echo.bin",
 			"exit.bin",
 			"help.bin",
 			"ls.bin",
 			"netstat.bin",
 			"restart.bin",
-			"alias.bin"
+			"alias.bin",
+			"mv.bin"
 		]
 	},
 	"testSystem1": {

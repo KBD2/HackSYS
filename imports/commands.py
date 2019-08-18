@@ -1,4 +1,4 @@
-__version__ = '1.8.0'
+__version__ = '1.9.0'
 
 from imports import (system, utils)
 from colorama import Fore
@@ -10,24 +10,36 @@ class HelpCommand:
     
     def __init__(self):
         self.meta = {
-            'descriptor': "Lists all commands, descriptors, and parameters.",
+            'descriptor': "Lists all commands. When given a command, gives a detailed description.",
             'params': [0,1],
             'switches': None
             }
 
     def run(self, sysCont, sys, terminal, *args, **kwargs):
+        binPath = system.FilePath('/bin', sys.fileSystem)
+        if binPath.status < 0:
+            terminal.out("Cannot find executables directory!")
+            return -1
+        else:
+            foundExecs = {}
+            binContents = sys.fileSystem.getContents(['bin'])
+            for item in binContents:
+                if binContents[item]['type'] == system.FileTypes.BIN:
+                    execHash = hashlib.md5(bytes(binContents[item]['content'], 'ascii')).hexdigest()
+                    if execHash in comList:
+                        foundExecs[item[:-4]] = comList[execHash]
         if len(args) == 0:
             terminal.out("Commands:\n")
-            for command in comList:
+            for command in foundExecs:
                 terminal.out(command)
             return 0
         else:
             selected = args[0]
-            if selected not in comList:
+            if selected not in foundExecs:
                 terminal.error("{} is not a command!".format(selected))
                 return -1
             else:
-                metaData =  comList[args[0]].meta
+                metaData =  foundExecs[selected].meta
                 terminal.out(args[0] + ":")
                 terminal.out(metaData['descriptor'])
                 if metaData['params'][1] - metaData['params'][0] > 0:
@@ -100,8 +112,14 @@ class OutputCommand:
             }
 
     def run(self, sysCont, sys, terminal, *args, **kwargs):
-        dirPath = args[0].split('/')
-        path = system.FilePath('/'.join(dirPath[:-1]), sys.fileSystem)
+        if args[0][0] == '/':
+            absolute = True
+        else:
+            absolute = False
+        dirPath = '/'.join(args[0].split('/')[:-1])
+        if absolute and dirPath == '':
+            dirPath = '/'
+        path = system.FilePath(dirPath, sys.fileSystem)
         if path.status == -1:
             terminal.error("{} is not a valid path!".format(args[0]))
             return -1
@@ -157,7 +175,9 @@ class AliasCommand:
 
     def __init__(self):
         self.meta = {
-            'descriptor': "Aliases the supplied name to the supplied command.",
+            'descriptor': "Aliases the supplied name to the supplied command. A\
+ string may be used to alias a more detailed command, and parameters given to th\
+e alias will be added to the command.",
             'params': [2,2],
             'switches': None
             }
@@ -192,18 +212,26 @@ class RestartCommand:
         sys.restart()
         return 0
 
-class FileDeleteCommand:
+class FileRemoveCommand:
 
     def __init__(self):
         self.meta = {
-            'descriptor': "Deletes the specified file.",
+            'descriptor': "Removes the specified item, use * to remove all in t\
+he specified path.",
             'params': [1,1],
             'switches': None
             }
 
     def run(self, sysCont, sys, terminal, *args, **kwargs):
         name = args[0].split('/')[-1]
-        path = system.FilePath('/'.join(args[0].split('/')[:-1]), sys.fileSystem)
+        if args[0][0] == '/':
+            absolute = True
+        else:
+            absolute = False
+        dirPath = '/'.join(args[0].split('/')[:-1])
+        if absolute and dirPath == '':
+            dirPath = '/'
+        path = system.FilePath(dirPath, sys.fileSystem)
         if path.status == -1:
             terminal.error("{} is not a valid path!".format(args[0]))
             return -1
@@ -212,15 +240,112 @@ class FileDeleteCommand:
             return -1
         else:
             contents = sys.fileSystem.getContents(path, True)
+            if name == '*':
+                items = list(contents.keys())
+                for item in items:
+                    sys.fileSystem.remove(path, item, blacklist=[system.FileTypes.DIR])
+                return 0
             if name not in contents:
                 terminal.error("{} does not exist!".format(name))
                 return -1
-            elif contents[name]['type'] == system.FileTypes.DIR:
-                terminal.error("{} is a directory!".format(name))
+            else:
+                ret = sys.fileSystem.remove(path, name, blacklist=[system.FileTypes.DIR])
+                if ret == -1:
+                    terminal.out("{} does not exist!".format(name))
+                    return -1
+                elif ret == -2:
+                    terminal.out("{} is a directory, use rmdir!".format(name))
+                else:
+                    return 0
+class FolderRemoveCommand:
+
+    def __init__(self):
+        self.meta = {
+            'descriptor': "Removes the specified directory, use * to remove all\
+in the specified path.",
+            'params': [1,1],
+            'switches': None
+            }
+
+    def run(self, sysCont, sys, terminal, *args, **kwargs):
+        name = args[0].split('/')[-1]
+        if args[0][0] == '/':
+            absolute = True
+        else:
+            absolute = False
+        dirPath = '/'.join(args[0].split('/')[:-1])
+        if absolute and dirPath == '':
+            dirPath = '/'
+        path = system.FilePath(dirPath, sys.fileSystem)
+        if path.status == -1:
+            terminal.error("{} is not a valid path!".format(args[0]))
+            return -1
+        elif path.status == -2:
+            terminal.error("{} is valid but is not a directory!".format(args[0]))
+            return -1
+        else:
+            contents = sys.fileSystem.getContents(path, True)
+            if name == '*':
+                items = list(contents.keys())
+                for item in items:
+                    sys.fileSystem.remove(path, item, whitelist=[system.FileTypes.DIR])
+                return 0
+            if name not in contents:
+                terminal.error("{} does not exist!".format(name))
                 return -1
             else:
-                del contents[name]
-                return 0
+                ret = sys.fileSystem.remove(path, name, whitelist=[system.FileTypes.DIR])
+                if ret == -1:
+                    terminal.out("{} does not exist!".format(name))
+                    return -1
+                elif ret == -2:
+                    terminal.out("{} is a file, use rm!".format(name))
+                else:
+                    return 0
+
+class MoveCommand:
+
+    def __init__(self):
+        self.meta = {
+            'descriptor': "Moves the file at the specified path to th\
+e second specified path.",
+            'params': [2,2],
+            'switches': None
+            }
+
+    def run(self, sysCont, sys, terminal, *args, **kwargs):
+        name1 = args[0].split('/')[-1]
+        name2 = args[1].split('/')[-1]
+        if args[0][0] == '/':
+            absolute = True
+        else:
+            absolute = False
+        dirPath = '/'.join(args[0].split('/')[:-1])
+        if absolute and dirPath == '':
+            dirPath = '/'
+        path1 = system.FilePath(dirPath, sys.fileSystem)
+        if path1.status == -1:
+            terminal.error("{} is not a valid path!".format(args[0]))
+            return -1
+        elif path1.status == -2:
+            terminal.error("{} is valid but is not a directory!".format(args[0]))
+            return -1
+        if args[1][0] == '/':
+            absolute = True
+        else:
+            absolute = False
+        dirPath = '/'.join(args[1].split('/')[:-1])
+        if absolute and dirPath == '':
+            dirPath = '/'
+        path2 = system.FilePath(dirPath, sys.fileSystem)
+        if path2.status == -1:
+            terminal.error("{} is not a valid path!".format(args[1]))
+            return -1
+        elif path2.status == -2:
+            terminal.error("{} is valid but is not a directory!".format(args[1]))
+            return -1
+        ret = sys.fileSystem.move(path1, name1, path2, name2)
+                
 
 class CommandController:
 
@@ -267,20 +392,15 @@ class CommandController:
             found = False
         elif partCommandFileName not in sys.fileSystem.getContents(['bin']):
             found = False
-        elif sys.fileSystem.getContents(['bin'])[partCommandFileName]['type'] != system.FileTypes.BIN:
-            found = False
         else:
             found = True
             execDir = sys.fileSystem.getContents(['bin'])
         if not found:
             if userBinPath.status < 0:
-                terminal.error("Cannot find executable file!")
+                terminal.error("Cannot find {} executable file!".format(partCommand))
                 return -1
             elif partCommandFileName not in sys.fileSystem.getContents(['bin']):
-                terminal.error("Cannot find executable file!")
-                return -1
-            elif sys.fileSystem.getContents(['bin'])[partCommandFileName]['type'] != system.FileTypes.BIN:
-                terminal.error("Cannot find executable file!")
+                terminal.error("Cannot find {} executable file!".format(partCommand))
                 return -1
             else:
                 execDir = sysCont.userSystem.getContents(['bin'])
@@ -362,8 +482,10 @@ comList = {
     getHash('ExitCommand.json'): ExitCommand(),
     getHash('TerminalOutCommand.json'): TerminalOutCommand(),
     getHash('RestartCommand.json'): RestartCommand(),
-    getHash('FileDeleteCommand.json'): FileDeleteCommand(),
-    getHash('AliasCommand.json'): AliasCommand()
+    getHash('FileRemoveCommand.json'): FileRemoveCommand(),
+    getHash('FolderRemoveCommand.json'): FolderRemoveCommand(),
+    getHash('AliasCommand.json'): AliasCommand(),
+    getHash('MoveCommand.json'): MoveCommand()
     }
 
 #For use when making a system
@@ -376,6 +498,8 @@ comTable = {
     'exit.bin':     'ExitCommand.json',
     'echo.bin':     'TerminalOutCommand.json',
     'restart.bin':  'RestartCommand.json',
-    'rm.bin':       'FileDeleteCommand.json',
-    'alias.bin':    'AliasCommand.json'
+    'rm.bin':       'FileRemoveCommand.json',
+    'rmdir.bin':    'FolderRemoveCommand.json',
+    'alias.bin':    'AliasCommand.json',
+    'mv.bin':       'MoveCommand.json'
     }

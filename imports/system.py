@@ -1,4 +1,4 @@
-__version__ = '2.3.1'
+__version__ = '2.4.0'
 
 '''Module to create a virtual system with an assigned IP, independent
 filesystem, and statuses, must be loaded along with other imports'''
@@ -16,6 +16,7 @@ class FileTypes(Enum):
     BIN = 2
     DAT = 3
     SYS = 4
+    MSC = 99
 
 class Statuses(Enum):
     ONLINE = 0
@@ -136,8 +137,8 @@ class FileSystem:
 
     def make(self, path, fileName, typ, content=None):
         '''Makes an item of the specified type'''
-        #        0: Successful
-        #       -1: Path already exists
+        #   0: Successful
+        #  -1: Path already exists
         assert type(path) is FilePath
         tempWorkDir = path.iterList.copy()
         tempWorkDirContents = self.getContents(self.workingDirectory, True)
@@ -150,18 +151,23 @@ class FileSystem:
             self.workDirContents = self.getContents(self.workingDirectory)
             return 0
 
-    def remove(self, path, fileName):
+    def remove(self, path, name, whitelist=None, blacklist=None):
         '''Removes the item at the given path'''
-        #        0: Successful
-        #       -1: Path doesn't exist
+        #  0: Successful
+        # -1: Path doesn't exist
         assert type(path) is FilePath
         tempWorkDir = path.iterList.copy()
         tempWorkDirContents = self.getContents(tempWorkDir, True)
-        if fileName not in tempWorkDirContents:
+        if name not in tempWorkDirContents:
             return -1
+        elif whitelist and tempWorkDirContents[name]['type'] not in whitelist:
+            return -2
+        elif blacklist and tempWorkDirContents[name]['type'] in blacklist:
+            return -2
         else:
-            del tempWorkDirContents[fileName]
+            del tempWorkDirContents[name]
             self.correctWorkingDirectory()
+            self.workDirContents = self.getContents(self.workingDirectory)
             return 0
 
     def correctWorkingDirectory(self):
@@ -176,9 +182,9 @@ class FileSystem:
 
     def output(self, path, fileName):
         '''Outputs the contents of the file in the supplied path'''
-        #      str: Successful
-        #       -1: Path doesn't exist
-        #       -2: Path is a directory
+        # str: Successful
+        #  -1: Path doesn't exist
+        #  -2: Path is a directory
         assert type(path) is FilePath
         tempWorkDir = path.iterList.copy()
         tempWorkDirContents = self.getContents(tempWorkDir)
@@ -192,6 +198,39 @@ class FileSystem:
         '''Soft inits the system, call this when disconnecting'''
         self.workingDirectory = []
         self.workDirContents = self.getContents()
+
+    def move(self, path1, name1, path2, name2):
+        '''Moves the file at path 1 to the file at path 2'''
+        #  0: Successful
+        # -1: Path doesn't exist
+        # -2: Path is a directoryS
+        getDirContents = self.getContents(path1.iterList, True)
+        if name1 not in getDirContents:
+            return -1
+        elif getDirContents[name1]['type'] == FileTypes.DIR:
+            return -2
+        else:
+            setDirContents = self.getContents(path2.iterList, True)
+            setDirContents[name2] = getDirContents.pop(name1)
+            fileType = self.getFileType(name2)
+            if fileType != FileTypes.DIR:
+                setDirContents[name2]['type'] = fileType
+            else:
+                setDirContents[name2]['type'] = FileTypes.MSC
+            self.correctWorkingDirectory()
+            self.workDirContents = self.getContents(self.workingDirectory)
+            return 0
+
+    def getFileType(self, fileName):
+        name = None
+        for count in range(len(fileName) - 1, -1, -1):
+            if fileName[count] == '.':
+                name = fileName[count + 1:]
+        try:
+            fileType = FileTypes[name.upper()]
+        except:
+            fileType = FileTypes.MSC
+        return fileType
 
 class FilePath:
     

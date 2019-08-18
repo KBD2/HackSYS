@@ -1,4 +1,4 @@
-__version__ = 'ALPHA 2.2.1'
+__version__ = 'ALPHA 2.2.2'
 
 import sys
 
@@ -26,6 +26,7 @@ terminal.out("Terminal Interpreter v.{}".format(__version__))
 while True:
     if sysCont.userSystem.status == system.Statuses.UNBOOTABLE:
         terminal.error("ERROR: SYSTEM UNBOOTABLE")
+        terminal.get()
         continue
     userInput = terminal.get(sysCont.userSystem.IP + sysCont.userSystem.fileSystem.getPath())
     ret = comCont.feed(userInput, sysCont, sysCont.userSystem, terminal)
@@ -33,3 +34,4 @@ while True:
     if ret == -99:
         sys.exit()
     continue
+ 

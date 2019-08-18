@@ -6,5 +6,7 @@ ScanCommand
 ExitCommand
 TerminalOutCommand
 RestartCommand
-FileDeleteCommand
+FileRemoveCommand
+FolderRemoveCommand
 AliasCommand
+MoveCommand
