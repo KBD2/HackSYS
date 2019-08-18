@@ -345,6 +345,14 @@ e second specified path.",
             terminal.error("{} is valid but is not a directory!".format(args[1]))
             return -1
         ret = sys.fileSystem.move(path1, name1, path2, name2)
+        if ret == -1:
+            terminal.error("{} doesn't exist!".format(name1))
+            return -1
+        elif ret == -2:
+            terminal.error("{} is a directory!".format(name1))
+            return -1
+        else:
+            return 0
                 
 
 class CommandController:
