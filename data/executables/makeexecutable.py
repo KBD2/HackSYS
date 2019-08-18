@@ -1,6 +1,7 @@
 import json
 import random
 import hashlib
+import os
 execNames = open('commandlist.txt', 'r').read().split('\n')
 for i in execNames:
     contents = ''.join(str(random.choice([0,1])) for i in range(random.randrange(100,500)))
@@ -11,5 +12,6 @@ for i in execNames:
         'hash': contentHash
         }
     execFilename = i + '.json'
-    with open(execFilename, 'w') as file:
-        json.dump(execData, file)
+    if execFilename not in os.listdir():
+        with open(execFilename, 'w') as file:
+            json.dump(execData, file)
