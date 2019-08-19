@@ -1,4 +1,4 @@
-__version__ = '1.1.0'
+__version__ = '1.1.1'
 
 import random
 import time
@@ -102,8 +102,8 @@ def serverBootSequence(sys, terminal):
     else:
         terminal.out("[OK]")
     terminal.out("{}KB Memory ({}KB extended)".format(
-        random.choice([1024,2048,4096,8192]),
-        random.choice([1024,2048,4096,8192])
+        2**random.randint(10,14),
+        2**random.randint(10,14)
         ))
     time.sleep(0.5)
     terminal.out("{}\" Disk".format(random.choice([3.5,5.2])))
@@ -115,14 +115,15 @@ def serverBootSequence(sys, terminal):
     terminal.out('')
     for i in range(8):
         if random.randrange(0,4) == 0:
-            terminal.error("BLOCK {}\t\t\t\t[ERROR]".format(i))
+            terminal.out("BLOCK {}\t\t\t\t".format(i), Fore.GREEN, True, False)
+            terminal.error("[ERROR]")
         else:
             terminal.out("BLOCK {}\t\t\t\t[OK]".format(i))
-    terminal.out("Connecting To Network", Fore.GREEN, True, False)
+    terminal.out("Connecting to Network", Fore.GREEN, True, False)
     for i in range(3):
         time.sleep(0.5)
         terminal.out(".", Fore.GREEN, True, False)
-    terminal.out("\t[IP {}]".format(sys.IP))
+    terminal.out("\nIP Address: {}".format(sys.IP))
     terminal.out("System OK Proceed to terminal")
     time.sleep(0.5)
     return 0

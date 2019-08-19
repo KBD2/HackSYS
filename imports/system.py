@@ -1,4 +1,4 @@
-__version__ = '2.4.0'
+__version__ = '2.4.1'
 
 '''Module to create a virtual system with an assigned IP, independent
 filesystem, and statuses, must be loaded along with other imports'''
@@ -9,7 +9,6 @@ import random
 from enum import Enum
 import hashlib
 
-#Filetype constants
 class FileTypes(Enum):
     DIR = 0
     TXT = 1
@@ -23,26 +22,112 @@ class Statuses(Enum):
     OFFLINE = 1
     UNBOOTABLE = 2
 
-SYSTEM_DEFAULT_FILESYSTEM = {
-    'home': {
-        'type': FileTypes.DIR,
-        'content': {}
-        },
-    'bin': {
-        'type': FileTypes.DIR,
-        'content': {}
-        },
-    'sys': {
-        'type': FileTypes.DIR,
-        'content': {}
-        }
-    }
+class SystemsController:
+
+    '''A wrapper to make systems easier to work with'''
+    
+    def __init__(self):
+        self.loadDefaultSystems()
+        self.userSystem = self.systemDict['userSystem']
+
+    def loadDefaultSystems(self):
+        defaultSystems = json.load(open('data/defaultsystems.json', 'r'))
+        self.systemDict = {}
+        self.systemLookup = {}
+        for sys in defaultSystems:
+            IP = utils.randIP()
+            self.systemDict[sys] = System(
+                IP,
+                utils.randOSCompany(),
+                defaultSystems[sys]
+                )
+            self.systemLookup[IP] = sys
+        return 0
+
+    def getConnectedIPs(self, IP):
+        systemName = self.getName(IP)
+        connectedIPs = []
+        for name in self.systemDict[systemName].connected:
+            connectedIPs.append(self.systemDict[name].IP)
+        return connectedIPs
+
+    def getName(self, IP):
+        if IP not in self.systemLookup:
+            return -1
+        else:
+            return self.systemLookup[IP]
+
+class FilePath:
+
+    '''Turns a string into a validated path, with support for files and content
+    validation'''
+    
+    def __init__(self, path, fileSystem, isFile=False, fileHash=None):
+        #  0: path is valid
+        # -1: path does not exist
+        # -2: path exists but is not a directory
+        # -3: file doesn't exist
+        # -4: file is actually a directory
+        # -5: file exists, but hash doesn't match
+        assert type(path) is str
+        self.iterList = []
+        if len(path) > 0 and path[0] == '/':
+            path = path[1:]
+            self.iterList = path.split('/')
+        else:
+            self.iterList = fileSystem.workingDirectory.copy()
+            for item in path.split('/'):
+                if item == '.':
+                    continue
+                elif item == '..':
+                    if self.iterList:
+                        self.iterList.pop()
+                    else:
+                        continue
+                else:
+                    self.iterList.append(item)
+        self.iterList = list(item for item in self.iterList if item != '')
+        self.length = len(self.iterList)
+        if isFile:
+            fileName = self.iterList[-1]
+            filePath = self.iterList[:-1]
+            self.status = fileSystem.checkIsValidPath(filePath)
+            if self.status == 0:
+                dirContents = fileSystem.getContents(filePath)
+                if fileName not in dirContents:
+                    self.status = -3
+                    return
+                elif dirContents[fileName]['type'] == FileTypes.DIR:
+                    self.status = -4
+                    return
+                else:
+                    if fileHash is not None:
+                        fileContentAsBytes = bytes(dirContents[fileName]['content'], 'ascii')
+                        computedHash = hashlib.md5(fileContentAsBytes).hexdigest()
+                        if computedHash == fileHash:
+                            return
+                        else:
+                            self.status = -5
+                            return
+                    else:
+                        return
+            else:
+                return
+        else:
+            self.status = fileSystem.checkIsValidPath(self.iterList)
+            return
+
+    def __iter__(self):
+        return (i for i in self.iterList)
+
+    def __getitem__(self, index):
+        return self.iterList[index]
 
 class System:
 
     '''A virtual system'''
 
-    def __init__(self, IP, OSManu, sysData, sysSysData, randomHomeFiles = True):
+    def __init__(self, IP, OSManu, sysData, randomHomeFiles = True):
         self.IP = IP
         self.fileSystem = FileSystem(SYSTEM_DEFAULT_FILESYSTEM.copy())
         self.OSManu = OSManu
@@ -52,38 +137,24 @@ class System:
         binPath = self.fileSystem.path['bin']['content']
         for item in sysData['executables']:
             fileName = commands.comTable[item]
-            fileContent = commands.getContent(fileName)
+            fileContent = commands.comContent[fileName]
             binPath[item] = {
                 'type': FileTypes.BIN,
                 'content': fileContent
                 }
-        sysPath = self.fileSystem.path['sys']['content']
-        for item in sysSysData:
-            sysPath[item] = {'type': FileTypes.BIN, 'content': sysSysData[item]['content']}
 
     def exit(self):
         self.fileSystem.exit()
 
     def restart(self, sysCont):
         self.exit()
-        if 'sys' not in self.fileSystem.path:
+        bootFilePath = FilePath('sys/boot.sys', self.fileSystem, True, sysFileHashes['boot.sys'])
+        if bootFilePath.status < 0:
             self.status = Statuses.UNBOOTABLE
             return -1
-        elif self.fileSystem.path['sys']['type'] != FileTypes.DIR:
-            self.status = Statuses.UNBOOTABLE
-            return -1
-        elif 'boot.sys' not in self.fileSystem.path['sys']['content']:
-                self.status = Statuses.UNBOOTABLE
-                return -1
         else:
-            bootPath = self.fileSystem.path['sys']['content']['boot.sys']
-            bootHash = hashlib.md5(bytes(bootPath['content'], 'ascii')).hexdigest()
-            if bootHash != sysCont.sysSysData['boot.sys']['hash']:
-                self.status = Statuses.UNBOOTABLE
-                return -1
-            else:
-                self.status = Statuses.ONLINE
-                return 0
+            self.status = Statuses.ONLINE
+            return 0
 
 class FileSystem:
 
@@ -109,22 +180,6 @@ class FileSystem:
         '''Returns the working directory as a string'''
         pathAsString = '/' + '/'.join(self.workingDirectory)
         return pathAsString
-
-    def checkIsValidPath(self, path):
-        '''Checks the path provided exists'''
-        #  0: path is valid
-        # -1: path does not exist
-        # -2: path exists but is not a dir
-        assert type(path) is FilePath
-        tempWorkDir = self.getContents()
-        for count, item in enumerate(path):
-            if item not in tempWorkDir:
-                return -1
-            elif tempWorkDir[item]['type'] != FileTypes.DIR:
-                return -2
-            else:
-                tempWorkDir = tempWorkDir[item]['content']
-        return 0
 
     def changeDir(self, path):
         '''Changes the directory to the supplied path'''
@@ -199,27 +254,22 @@ class FileSystem:
         self.workingDirectory = []
         self.workDirContents = self.getContents()
 
-    def move(self, path1, name1, path2, name2):
+    def move(self, pathGet, nameGet, pathSet, nameSet):
         '''Moves the file at path 1 to the file at path 2'''
         #  0: Successful
         # -1: Path doesn't exist
-        # -2: Path is a directoryS
-        getDirContents = self.getContents(path1.iterList, True)
-        if name1 not in getDirContents:
-            return -1
-        elif getDirContents[name1]['type'] == FileTypes.DIR:
-            return -2
+        # -2: Path is a directory
+        getDirContents = self.getContents(pathGet.iterList, True)
+        setDirContents = self.getContents(pathSet.iterList, True)
+        setDirContents[nameSet] = getDirContents.pop(nameGet)
+        fileType = self.getFileType(nameSet)
+        if fileType != FileTypes.DIR:
+            setDirContents[nameSet]['type'] = fileType
         else:
-            setDirContents = self.getContents(path2.iterList, True)
-            setDirContents[name2] = getDirContents.pop(name1)
-            fileType = self.getFileType(name2)
-            if fileType != FileTypes.DIR:
-                setDirContents[name2]['type'] = fileType
-            else:
-                setDirContents[name2]['type'] = FileTypes.MSC
-            self.correctWorkingDirectory()
-            self.workDirContents = self.getContents(self.workingDirectory)
-            return 0
+            setDirContents[nameSet]['type'] = FileTypes.MSC
+        self.correctWorkingDirectory()
+        self.workDirContents = self.getContents(self.workingDirectory)
+        return 0
 
     def getFileType(self, fileName):
         name = None
@@ -232,74 +282,61 @@ class FileSystem:
             fileType = FileTypes.MSC
         return fileType
 
-class FilePath:
-    
-    def __init__(self, path, fileSystem):
-        assert type(path) is str
-        self.iterList = []
-        if len(path) > 0 and path[0] == '/':
-            path = path[1:]
-            self.iterList = path.split('/')
-        else:
-            self.iterList = fileSystem.workingDirectory.copy()
-            for item in path.split('/'):
-                if item == '.':
-                    continue
-                elif item == '..':
-                    if self.iterList:
-                        self.iterList.pop()
-                    else:
-                        continue
-                else:
-                    self.iterList.append(item)
-        for count, item in enumerate(self.iterList):
-            if item == '':
-                del self.iterList[count]
-        self.length = len(self.iterList)
-        self.status = fileSystem.checkIsValidPath(self)
-
-    def __iter__(self):
-        return (i for i in self.iterList)
-
-    def __getitem__(self, index):
-        return self.iterList[index]
-
-class SystemsController:
-
-    '''A wrapper to make systems easier to work with'''
-    
-    def __init__(self):
-        self.loadDefaultSystems()
-        self.userSystem = self.systemDict['userSystem']
-
-    def loadDefaultSystems(self):
-        defaultSystems = json.load(open('data/defaultsystems.json', 'r'))
-        self.sysSysData = {
-            'boot.sys': json.load(open('data/system/boot.json', 'r')),
-            'command.sys': json.load(open('data/system/command.json', 'r'))
-            }
-        self.systemDict = {}
-        self.systemLookup = {}
-        for sys in defaultSystems:
-            IP = utils.randIP()
-            self.systemDict[sys] = System(
-                IP,
-                utils.randOSCompany(),
-                defaultSystems[sys],
-                self.sysSysData
-                )
-            self.systemLookup[IP] = sys
+    def checkIsValidPath(self, pathList):
+        '''Checks the path provided exists'''
+        #  0: path is valid
+        # -1: path does not exist
+        # -2: path exists but is not a dir
+        tempWorkDir = self.getContents()
+        for count, item in enumerate(pathList):
+            if item not in tempWorkDir:
+                return -1
+            elif tempWorkDir[item]['type'] != FileTypes.DIR:
+                return -2
+            else:
+                tempWorkDir = tempWorkDir[item]['content']
         return 0
 
-    def getConnectedIPs(self, IP):
-        systemName = self.getName(IP)
-        connectedIPs = []
-        for name in self.systemDict[systemName].connected:
-            connectedIPs.append(self.systemDict[name].IP)
-        return connectedIPs
+def getSysHash(fileName):
+    with open('data/system/' + fileName, 'r') as file:
+        fileData = json.loads(file.read())
+    return fileData['hash']
 
-    def getName(self, IP):
-        if IP not in self.systemLookup:
-            return -1
-        else:
-            return self.systemLookup[IP]
+def getSysContent(fileName):
+    with open('data/system/' + fileName, 'r') as file:
+        fileData = json.loads(file.read())
+    return fileData['content']
+
+sysFileHashes = {
+    'command.sys': getSysHash('command.json'),
+    'boot.sys': getSysHash('boot.json')
+    }
+
+sysFileContents = {
+    'command.sys': getSysContent('command.json'),
+    'boot.sys': getSysContent('boot.json')
+    }
+
+SYSTEM_DEFAULT_FILESYSTEM = {
+    'home': {
+        'type': FileTypes.DIR,
+        'content': {}
+        },
+    'bin': {
+        'type': FileTypes.DIR,
+        'content': {}
+        },
+    'sys': {
+        'type': FileTypes.DIR,
+        'content': {
+            'command.sys': {
+                'type': FileTypes.SYS,
+                'content': getSysContent('command.json')
+                },
+            'boot.sys': {
+                'type': FileTypes.SYS,
+                'content': getSysContent('boot.json')
+                },
+            }
+        }
+    }

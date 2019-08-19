@@ -1,4 +1,4 @@
-__version__ = '1.9.0'
+__version__ = '1.9.1'
 
 from imports import (system, utils)
 from colorama import Fore
@@ -6,6 +6,142 @@ import hashlib
 import random
 import json
 import time
+
+class CommandController:
+
+    '''A wrapper to make parsing, validating, and executing commands easier'''
+
+    def __init__(self):
+        pass
+
+    def feed(self, command, sysCont, sys, terminal):
+        if command == '':
+            return 0
+        command = self.handleSpaces(command)
+        parts = command.split('§')
+        count = 0
+        while count < len(parts):
+            if parts[count] == '':
+                del parts[count]
+            else:
+                count += 1
+        partCommand = parts[0]
+        if partCommand in sys.aliasTable:
+            try:
+                return self.feed(
+                    sys.aliasTable[partCommand] + ' ' + ' '.join(parts[1:]),
+                    sysCont,
+                    sys,
+                    terminal
+                    )
+            except RecursionError:
+                terminal.out("Too much recursion!")
+                return -1
+        partCommandFileName = partCommand + '.bin'
+        userFileSystem = sysCont.userSystem.fileSystem.path
+        userPath = system.FilePath(
+            '/sys/command.sys',
+            sysCont.userSystem.fileSystem,
+            True,
+            system.getSysHash('command.json')
+            )
+        sysPath = system.FilePath(
+            '/sys/command.sys',
+            sys.fileSystem,
+            True,
+            system.sysFileHashes['command.sys']
+            )
+        if sysPath.status in [-1,-2,-3,-4]:
+            terminal.error("SYSTEM ERROR: CANNOT FIND COMMAND EXECUTABLE")
+            return -1
+        elif sysPath.status == -5:
+            terminal.error("SYSTEM ERROR: INVALID COMMAND EXECUTABLE")
+            return -1
+        currBinPath = system.FilePath(
+            '/bin/' + partCommandFileName,
+            sys.fileSystem,
+            True
+            )
+        userBinPath = system.FilePath(
+            '/bin/' + partCommandFileName,
+            sysCont.userSystem.fileSystem,
+            True
+            )
+        if currBinPath.status < 0:
+            found = False
+        else:
+            found = True
+            execDir = sys.fileSystem.getContents(['bin'])
+        if not found:
+            if userPath.status in [-1,-2,-3,-4]:
+                terminal.error("SYSTEM ERROR: CANNOT FIND COMMAND EXECUTABLE")
+                return -1
+            elif userPath.status == -5:
+                terminal.error("SYSTEM ERROR: INVALID COMMAND EXECUTABLE")
+                return -1
+            elif userBinPath.status < 0:
+                terminal.error("Cannot find {} executable file!".format(partCommand))
+                return -1
+            else:
+                execDir = sysCont.userSystem.getContents(['bin'])
+        execHash = hashlib.md5(bytes(execDir[partCommandFileName]['content'], 'ascii')).hexdigest()
+        if execHash not in comList:
+            terminal.error(partCommandFilename + " is not a valid executable file!")
+            return -1
+        else:
+            command = comList[execHash]
+            comSwitches = command.meta['switches']
+            params = []
+            switches = {}
+            count = 1
+            if comSwitches:
+                for part in parts[1:]:
+                    if part[0] == '-':
+                        if part in comSwitches:
+                            switches[part] = True
+                        else:
+                            terminal.error("Not a valid switch!")
+                            return -1
+                    else:
+                        break
+                    count += 1
+                for switch in comSwitches:
+                    if switch not in switches:
+                        switches[switch] = False
+            for part in parts[count:]:
+                if len(part) == 0:
+                    continue
+                elif part[0] == '-':
+                    if not comSwitches:
+                        terminal.error("This command does not have any switches!")
+                        return -1
+                    else:
+                        terminal.error("Switches must come before parameters!")
+                        return -1
+                else:
+                    params.append(part)
+                count += 1
+            if len(params) < command.meta['params'][0] or len(params) > command.meta['params'][1]:
+                terminal.error("Incorrect number of parameters!")
+                return -1
+            else:
+                return command.run(sysCont, sys, terminal, *params, **switches)
+
+    def handleSpaces(self, string):
+        spaceHolder = '§'
+        lastQuote = None
+        for count, char in enumerate(string):
+            if char == '"' or char == "'":
+                if not lastQuote:
+                    lastQuote = char
+                    string = string[:count] + '§' + string[count + 1:]
+                else:
+                    if lastQuote == char:
+                        lastQuote = None
+                        string = string[:count] + '§' + string[count + 1:]
+            elif char == ' ' and not lastQuote:
+                string = string[:count] + '§' + string[count + 1:]
+        return string
 
 class HelpCommand:
     
@@ -319,186 +455,43 @@ e second specified path.",
             }
 
     def run(self, sysCont, sys, terminal, *args, **kwargs):
-        name1 = args[0].split('/')[-1]
-        name2 = args[1].split('/')[-1]
-        if args[0][0] == '/':
-            absolute = True
-        else:
-            absolute = False
-        dirPath = '/'.join(args[0].split('/')[:-1])
-        if absolute and dirPath == '':
-            dirPath = '/'
-        path1 = system.FilePath(dirPath, sys.fileSystem)
-        if path1.status == -1:
+        nameGet = args[0].split('/')[-1]
+        pathTest = system.FilePath(args[0], sys.fileSystem, True)
+        if pathTest.status < 0:
             terminal.error("{} is not a valid path!".format(args[0]))
             return -1
-        elif path1.status == -2:
-            terminal.error("{} is valid but is not a directory!".format(args[0]))
-            return -1
-        if args[1][0] == '/':
-            absolute = True
-        else:
-            absolute = False
-        dirPath = '/'.join(args[1].split('/')[:-1])
-        if absolute and dirPath == '':
-            dirPath = '/'
-        path2 = system.FilePath(dirPath, sys.fileSystem)
-        if path2.status == -1:
+        pathGet = system.FilePath(args[0][:-len(nameGet)], sys.fileSystem)
+        nameSet = args[1].split('/')[-1]
+        pathSet = system.FilePath(args[1][:-len(nameSet)], sys.fileSystem)
+        if pathSet.status < 0:
             terminal.error("{} is not a valid path!".format(args[1]))
             return -1
-        elif path2.status == -2:
-            terminal.error("{} is valid but is not a directory!".format(args[1]))
-            return -1
-        ret = sys.fileSystem.move(path1, name1, path2, name2)
-        if ret == -1:
-            terminal.error("{} doesn't exist!".format(name1))
-            return -1
-        elif ret == -2:
-            terminal.error("{} is a directory!".format(name1))
-            return -1
-        else:
-            return 0
-                
+        ret = sys.fileSystem.move(pathGet, nameGet, pathSet, nameSet)
+        return 0
 
-class CommandController:
-
-    def __init__(self):
-        pass
-
-    def feed(self, command, sysCont, sys, terminal):
-        if command == '':
-            return 0
-        command = self.handleSpaces(command)
-        parts = command.split('§')
-        count = 0
-        while count < len(parts):
-            if parts[count] == '':
-                del parts[count]
-            else:
-                count += 1
-        partCommand = parts[0]
-        if partCommand in sys.aliasTable:
-            try:
-                return self.feed(sys.aliasTable[partCommand] + ' ' + ' '.join(parts[1:]), sysCont, sys, terminal)
-            except RecursionError:
-                terminal.out("Too much recursion!")
-                return -1
-        partCommandFileName = partCommand + '.bin'
-        userFileSystem = sysCont.userSystem.fileSystem.path
-        workSysWorkDirCont = sys.fileSystem.getContents(sys.fileSystem.workingDirectory)
-        sysPath = system.FilePath('/sys', sys.fileSystem)
-        if sysPath.status < 0:
-            terminal.error("SYSTEM ERROR: CANNOT FIND SYSTEM DIRECTORY")
-            return -1
-        elif 'command.sys' not in userFileSystem['sys']['content']:
-            terminal.error("SYSTEM ERROR: CANNOT FIND COMMAND EXECUTABLE")
-            return -1
-        else:
-            commandDir = sys.fileSystem.path['sys']['content']['command.sys']
-            commandHash = hashlib.md5(bytes(commandDir['content'], 'ascii')).hexdigest()
-            if commandHash != sysCont.sysSysData['command.sys']['hash']:
-                terminal.error("SYSTEM ERROR: INVALID COMMAND EXECUTABLE")
-                return -1
-        currBinPath = system.FilePath('/bin', sys.fileSystem)
-        userBinPath = system.FilePath('/bin', sysCont.userSystem.fileSystem)
-        if currBinPath.status < 0:
-            found = False
-        elif partCommandFileName not in sys.fileSystem.getContents(['bin']):
-            found = False
-        else:
-            found = True
-            execDir = sys.fileSystem.getContents(['bin'])
-        if not found:
-            if userBinPath.status < 0:
-                terminal.error("Cannot find {} executable file!".format(partCommand))
-                return -1
-            elif partCommandFileName not in sys.fileSystem.getContents(['bin']):
-                terminal.error("Cannot find {} executable file!".format(partCommand))
-                return -1
-            else:
-                execDir = sysCont.userSystem.getContents(['bin'])
-        execHash = hashlib.md5(bytes(execDir[partCommandFileName]['content'], 'ascii')).hexdigest()
-        if execHash not in comList:
-            terminal.error(partCommandFilename + " is not a valid executable file!")
-            return -1
-        else:
-            command = comList[execHash]
-            comSwitches = command.meta['switches']
-            params = []
-            switches = {}
-            count = 1
-            if comSwitches:
-                for part in parts[1:]:
-                    if part[0] == '-':
-                        if part in comSwitches:
-                            switches[part] = True
-                        else:
-                            terminal.error("Not a valid switch!")
-                            return -1
-                    else:
-                        break
-                    count += 1
-                for switch in comSwitches:
-                    if switch not in switches:
-                        switches[switch] = False
-            for part in parts[count:]:
-                if len(part) == 0:
-                    continue
-                elif part[0] == '-':
-                    if not comSwitches:
-                        terminal.error("This command does not have any switches!")
-                        return -1
-                    else:
-                        terminal.error("Switches must come before parameters!")
-                        return -1
-                else:
-                    params.append(part)
-                count += 1
-            if len(params) < command.meta['params'][0] or len(params) > command.meta['params'][1]:
-                terminal.error("Incorrect number of parameters!")
-                return -1
-            else:
-                return command.run(sysCont, sys, terminal, *params, **switches)
-
-    def handleSpaces(self, string):
-        spaceHolder = '§'
-        lastQuote = None
-        for count, char in enumerate(string):
-            if char == '"' or char == "'":
-                if not lastQuote:
-                    lastQuote = char
-                    string = string[:count] + '§' + string[count + 1:]
-                else:
-                    if lastQuote == char:
-                        lastQuote = None
-                        string = string[:count] + '§' + string[count + 1:]
-            elif char == ' ' and not lastQuote:
-                string = string[:count] + '§' + string[count + 1:]
-        return string
-
-def getHash(fileName):
-    with open('data/executables/' + fileName) as file:
+def getExecHash(fileName):
+    with open('data/executables/' + fileName, 'r') as file:
         fileData = json.loads(file.read())
     return fileData['hash']
 
-def getContent(fileName):
+def getExecContent(fileName):
     with open('data/executables/' + fileName) as file:
         fileData = json.loads(file.read())
     return fileData['content']
 
 comList = {
-    getHash('HelpCommand.json'): HelpCommand(),
-    getHash('ListCommand.json'): ListCommand(),
-    getHash('ChangeDirCommand.json'): ChangeDirCommand(),
-    getHash('OutputCommand.json'): OutputCommand(),
-    getHash('ScanCommand.json'): ScanCommand(),
-    getHash('ExitCommand.json'): ExitCommand(),
-    getHash('TerminalOutCommand.json'): TerminalOutCommand(),
-    getHash('RestartCommand.json'): RestartCommand(),
-    getHash('FileRemoveCommand.json'): FileRemoveCommand(),
-    getHash('FolderRemoveCommand.json'): FolderRemoveCommand(),
-    getHash('AliasCommand.json'): AliasCommand(),
-    getHash('MoveCommand.json'): MoveCommand()
+    getExecHash('HelpCommand.json'): HelpCommand(),
+    getExecHash('ListCommand.json'): ListCommand(),
+    getExecHash('ChangeDirCommand.json'): ChangeDirCommand(),
+    getExecHash('OutputCommand.json'): OutputCommand(),
+    getExecHash('ScanCommand.json'): ScanCommand(),
+    getExecHash('ExitCommand.json'): ExitCommand(),
+    getExecHash('TerminalOutCommand.json'): TerminalOutCommand(),
+    getExecHash('RestartCommand.json'): RestartCommand(),
+    getExecHash('FileRemoveCommand.json'): FileRemoveCommand(),
+    getExecHash('FolderRemoveCommand.json'): FolderRemoveCommand(),
+    getExecHash('AliasCommand.json'): AliasCommand(),
+    getExecHash('MoveCommand.json'): MoveCommand()
     }
 
 #For use when making a system
@@ -516,3 +509,7 @@ comTable = {
     'alias.bin':    'AliasCommand.json',
     'mv.bin':       'MoveCommand.json'
     }
+
+comContent = {}
+for item in comTable.values():
+    comContent[item] = getExecContent(item)
