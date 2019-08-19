@@ -44,5 +44,6 @@ while True:
     terminal.out('')
     if ret == -99:
         sysModule.exit()
-    continue
+    else:
+        continue
  

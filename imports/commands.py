@@ -1,4 +1,4 @@
-__version__ = '1.9.2'
+__version__ = '1.9.3'
 
 from imports import (system, utils)
 from colorama import Fore
@@ -178,6 +178,7 @@ tailed description.",
                     if execHash in comList:
                         foundExecs[item[:-4]] = comList[execHash]
         if len(args) == 0:
+            terminal.out("help <command> for a more detailed description.")
             terminal.out("Commands:\n")
             for command in foundExecs:
                 terminal.out(command)
@@ -209,7 +210,8 @@ class ListCommand:
 
     def __init__(self):
         self.meta = {
-            'descriptor': "Lists all files and directories in the current working directory.",
+            'descriptor': "Lists all files and directories in the current worki\
+ng directory. Use the '-r' switch to recursively list all directories.",
             'params': [0,0],
             'switches': ['-r']
             }
@@ -328,14 +330,25 @@ class AliasCommand:
         self.meta = {
             'descriptor': "Aliases the supplied name to the supplied command. A\
  string may be used to alias a more detailed command, and parameters given to th\
-e alias will be added to the command.",
-            'params': [2,2],
-            'switches': None
+e alias will be added to the command. Use the '-r' switch to delete an alias.",
+            'params': [1,2],
+            'switches': ['-r']
             }
 
     def run(self, sysCont, sys, terminal, *args, **kwargs):
-        sys.aliasTable[args[0]] = args[1]
-        return 0
+        if kwargs['-r']:
+            if args[0] in sys.aliasTable:
+                del sys.aliasTable[args[0]]
+                return 0
+            else:
+                terminal.error("{} is not an alias!".format(args[0]))
+                return -1
+        else:
+            if len(args) < 2:
+                terminal.error("Incorrect number of parameters!")
+                return -1
+            sys.aliasTable[args[0]] = args[1]
+            return 0
 
 class TerminalOutCommand:
 
