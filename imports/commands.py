@@ -381,7 +381,7 @@ he specified path.",
         if name == '*':
             path = system.FilePath(args[0][:-len(name)], sys.fileSystem)
         else:
-            path = system.FilePath(args[0], sys.fileSystem)
+            path = system.FilePath(args[0], sys.fileSystem, True)
         if path.status < 0:
             terminal.error("{} is not a valid path!".format(args[0]))
             return -1
