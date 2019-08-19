@@ -1,4 +1,4 @@
-__version__ = '2.4.1'
+__version__ = '2.4.2'
 
 '''Module to create a virtual system with an assigned IP, independent
 filesystem, and statuses, must be loaded along with other imports'''
@@ -243,11 +243,7 @@ class FileSystem:
         assert type(path) is FilePath
         tempWorkDir = path.iterList.copy()
         tempWorkDirContents = self.getContents(tempWorkDir)
-        if fileName not in tempWorkDirContents:
-            return -1
-        elif tempWorkDirContents[fileName]['type'] == FileTypes.DIR:
-            return -2
-        else:            return tempWorkDirContents[fileName]['content']
+        return tempWorkDirContents[fileName]['content']
 
     def exit(self):
         '''Soft inits the system, call this when disconnecting'''

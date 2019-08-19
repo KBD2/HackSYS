@@ -1,4 +1,4 @@
-__version__ = '1.9.1'
+__version__ = '1.9.2'
 
 from imports import (system, utils)
 from colorama import Fore
@@ -18,114 +18,118 @@ class CommandController:
         if command == '':
             return 0
         command = self.handleSpaces(command)
-        parts = command.split('§')
-        count = 0
-        while count < len(parts):
-            if parts[count] == '':
-                del parts[count]
-            else:
-                count += 1
-        partCommand = parts[0]
-        if partCommand in sys.aliasTable:
-            try:
-                return self.feed(
-                    sys.aliasTable[partCommand] + ' ' + ' '.join(parts[1:]),
-                    sysCont,
-                    sys,
-                    terminal
-                    )
-            except RecursionError:
-                terminal.out("Too much recursion!")
-                return -1
-        partCommandFileName = partCommand + '.bin'
-        userFileSystem = sysCont.userSystem.fileSystem.path
-        userPath = system.FilePath(
-            '/sys/command.sys',
-            sysCont.userSystem.fileSystem,
-            True,
-            system.getSysHash('command.json')
-            )
-        sysPath = system.FilePath(
-            '/sys/command.sys',
-            sys.fileSystem,
-            True,
-            system.sysFileHashes['command.sys']
-            )
-        if sysPath.status in [-1,-2,-3,-4]:
-            terminal.error("SYSTEM ERROR: CANNOT FIND COMMAND EXECUTABLE")
-            return -1
-        elif sysPath.status == -5:
-            terminal.error("SYSTEM ERROR: INVALID COMMAND EXECUTABLE")
-            return -1
-        currBinPath = system.FilePath(
-            '/bin/' + partCommandFileName,
-            sys.fileSystem,
-            True
-            )
-        userBinPath = system.FilePath(
-            '/bin/' + partCommandFileName,
-            sysCont.userSystem.fileSystem,
-            True
-            )
-        if currBinPath.status < 0:
-            found = False
-        else:
-            found = True
-            execDir = sys.fileSystem.getContents(['bin'])
-        if not found:
-            if userPath.status in [-1,-2,-3,-4]:
+        commands = command.split('¶')
+        for command in commands:
+            parts = command.split('§')
+            count = 0
+            while count < len(parts):
+                if parts[count] == '':
+                    del parts[count]
+                else:
+                    count += 1
+            partCommand = parts[0]
+            if partCommand in sys.aliasTable:
+                try:
+                    return self.feed(
+                        sys.aliasTable[partCommand] + ' ' + ' '.join(parts[1:]),
+                        sysCont,
+                        sys,
+                        terminal
+                        )
+                except RecursionError:
+                    terminal.out("Too much recursion!")
+                    return -1
+            partCommandFileName = partCommand + '.bin'
+            userFileSystem = sysCont.userSystem.fileSystem.path
+            userPath = system.FilePath(
+                '/sys/command.sys',
+                sysCont.userSystem.fileSystem,
+                True,
+                system.getSysHash('command.json')
+                )
+            sysPath = system.FilePath(
+                '/sys/command.sys',
+                sys.fileSystem,
+                True,
+                system.sysFileHashes['command.sys']
+                )
+            if sysPath.status in [-1,-2,-3,-4]:
                 terminal.error("SYSTEM ERROR: CANNOT FIND COMMAND EXECUTABLE")
                 return -1
-            elif userPath.status == -5:
+            elif sysPath.status == -5:
                 terminal.error("SYSTEM ERROR: INVALID COMMAND EXECUTABLE")
                 return -1
-            elif userBinPath.status < 0:
-                terminal.error("Cannot find {} executable file!".format(partCommand))
+            currBinPath = system.FilePath(
+                '/bin/' + partCommandFileName,
+                sys.fileSystem,
+                True
+                )
+            userBinPath = system.FilePath(
+                '/bin/' + partCommandFileName,
+                sysCont.userSystem.fileSystem,
+                True
+                )
+            if currBinPath.status < 0:
+                found = False
+            else:
+                found = True
+                execDir = sys.fileSystem.getContents(['bin'])
+            if not found:
+                if userPath.status in [-1,-2,-3,-4]:
+                    terminal.error("SYSTEM ERROR: CANNOT FIND COMMAND EXECUTABLE")
+                    return -1
+                elif userPath.status == -5:
+                    terminal.error("SYSTEM ERROR: INVALID COMMAND EXECUTABLE")
+                    return -1
+                elif userBinPath.status < 0:
+                    terminal.error("Cannot find {} executable file!".format(partCommand))
+                    return -1
+                else:
+                    execDir = sysCont.userSystem.getContents(['bin'])
+            execHash = hashlib.md5(
+                bytes(execDir[partCommandFileName]['content'], 'ascii')
+                ).hexdigest()
+            if execHash not in comList:
+                terminal.error(partCommandFilename + " is not a valid executable file!")
                 return -1
             else:
-                execDir = sysCont.userSystem.getContents(['bin'])
-        execHash = hashlib.md5(bytes(execDir[partCommandFileName]['content'], 'ascii')).hexdigest()
-        if execHash not in comList:
-            terminal.error(partCommandFilename + " is not a valid executable file!")
-            return -1
-        else:
-            command = comList[execHash]
-            comSwitches = command.meta['switches']
-            params = []
-            switches = {}
-            count = 1
-            if comSwitches:
-                for part in parts[1:]:
-                    if part[0] == '-':
-                        if part in comSwitches:
-                            switches[part] = True
+                command = comList[execHash]
+                comSwitches = command.meta['switches']
+                params = []
+                switches = {}
+                count = 1
+                if comSwitches:
+                    for part in parts[1:]:
+                        if part[0] == '-':
+                            if part in comSwitches:
+                                switches[part] = True
+                            else:
+                                terminal.error("Not a valid switch!")
+                                return -1
                         else:
-                            terminal.error("Not a valid switch!")
+                            break
+                        count += 1
+                    for switch in comSwitches:
+                        if switch not in switches:
+                            switches[switch] = False
+                for part in parts[count:]:
+                    if len(part) == 0:
+                        continue
+                    elif part[0] == '-':
+                        if not comSwitches:
+                            terminal.error("This command does not have any switches!")
+                            return -1
+                        else:
+                            terminal.error("Switches must come before parameters!")
                             return -1
                     else:
-                        break
+                        params.append(part)
                     count += 1
-                for switch in comSwitches:
-                    if switch not in switches:
-                        switches[switch] = False
-            for part in parts[count:]:
-                if len(part) == 0:
-                    continue
-                elif part[0] == '-':
-                    if not comSwitches:
-                        terminal.error("This command does not have any switches!")
-                        return -1
-                    else:
-                        terminal.error("Switches must come before parameters!")
-                        return -1
+                if len(params) < command.meta['params'][0] or len(params) > command.meta['params'][1]:
+                    terminal.error("Incorrect number of parameters!")
+                    return -1
                 else:
-                    params.append(part)
-                count += 1
-            if len(params) < command.meta['params'][0] or len(params) > command.meta['params'][1]:
-                terminal.error("Incorrect number of parameters!")
-                return -1
-            else:
-                return command.run(sysCont, sys, terminal, *params, **switches)
+                    command.run(sysCont, sys, terminal, *params, **switches)
 
     def handleSpaces(self, string):
         spaceHolder = '§'
@@ -141,13 +145,19 @@ class CommandController:
                         string = string[:count] + '§' + string[count + 1:]
             elif char == ' ' and not lastQuote:
                 string = string[:count] + '§' + string[count + 1:]
+            elif char == ';':
+                if lastQuote:
+                    continue
+                else:
+                    char = string = string[:count] + '¶' + string[count + 1:]
         return string
 
 class HelpCommand:
     
     def __init__(self):
         self.meta = {
-            'descriptor': "Lists all commands. When given a command, gives a detailed description.",
+            'descriptor': "Lists all commands. When given a command, gives a de\
+tailed description.",
             'params': [0,1],
             'switches': None
             }
@@ -162,7 +172,9 @@ class HelpCommand:
             binContents = sys.fileSystem.getContents(['bin'])
             for item in binContents:
                 if binContents[item]['type'] == system.FileTypes.BIN:
-                    execHash = hashlib.md5(bytes(binContents[item]['content'], 'ascii')).hexdigest()
+                    execHash = hashlib.md5(
+                        bytes(binContents[item]['content'], 'ascii')
+                        ).hexdigest()
                     if execHash in comList:
                         foundExecs[item[:-4]] = comList[execHash]
         if len(args) == 0:
@@ -180,11 +192,18 @@ class HelpCommand:
                 terminal.out(args[0] + ":")
                 terminal.out(metaData['descriptor'])
                 if metaData['params'][1] - metaData['params'][0] > 0:
-                    terminal.out("Number of parameters: {} to {}".format(metaData['params'][0], metaData['params'][1]))
+                    terminal.out("Number of parameters: {} to {}".format(
+                        metaData['params'][0],
+                        metaData['params'][1])
+                                 )
                 else:
-                    terminal.out("Number of parameters: {}".format(metaData['params'][0]))
+                    terminal.out("Number of parameters: {}".format(
+                        metaData['params'][0]
+                        ))
                 if metaData['switches']:
-                    terminal.out("Switches: {}".format(', '.join(switch for switch in metaData['switches'])))
+                    terminal.out("Switches: {}".format(
+                        ', '.join(switch for switch in metaData['switches'])
+                        ))
 
 class ListCommand:
 
@@ -222,7 +241,8 @@ class ChangeDirCommand:
 
     def __init__(self):
         self.meta = {
-            'descriptor': "Changes the current working directory to the supplied absolute or relative path.",
+            'descriptor': "Changes the current working directory to the supplie\
+d absolute or relative path.",
             'params': [1,1],
             'switches': None
             }
@@ -249,33 +269,14 @@ class OutputCommand:
             }
 
     def run(self, sysCont, sys, terminal, *args, **kwargs):
-        if args[0][0] == '/':
-            absolute = True
-        else:
-            absolute = False
-        name = args[0].split('/')[-1]
-        dirPath = '/'.join(args[0].split('/')[:-1])
-        if absolute and dirPath == '':
-            dirPath = '/'
-        path = system.FilePath(dirPath, sys.fileSystem)
-        if path.status == -1:
+        path = system.FilePath(args[0], sys.fileSystem, True)
+        if path.status < 0:
             terminal.error("{} is not a valid path!".format(args[0]))
-            return -1
-        elif path.status == -2:
-            terminal.error("{} is valid but is not a directory!".format(args[0]))
             return -1
         else:
             out = sys.fileSystem.output(path, name)
-            if out is not None:
-                if out == -1:
-                    terminal.error("{} does not exist!".format(args[0]))
-                    return -1
-                elif out == -2:
-                    terminal.error("{} is a directory!".format(args[0]))
-                    return -1
-                else:
-                    terminal.out(out)
-                    return 0
+            terminal.out(out)
+            return 0
 
 class ScanCommand:
 
@@ -291,10 +292,22 @@ class ScanCommand:
         terminal.out("IP\t\tPort\tName\n")
         for item in connected:
             for i in range(random.randint(0,3)):
-                terminal.out(utils.randIP() + '\t' + str(random.randint(0,99999)) + '\t' + utils.randSystemName())
-            terminal.out(item + '\t' + str(random.randint(0,99999)) + '\t' +  sysCont.getName(item))
+                terminal.out(utils.randIP()
+                             + '\t'
+                             + str(random.randint(0,99999))
+                             + '\t'
+                             + utils.randSystemName())
+            terminal.out(item
+                         + '\t'
+                         + str(random.randint(0,99999))
+                         + '\t'
+                         +  sysCont.getName(item))
             for i in range(random.randint(0,3)):
-                terminal.out(utils.randIP() + '\t' + str(random.randint(0,99999)) + '\t' +  utils.randSystemName())
+                terminal.out(utils.randIP()
+                             + '\t'
+                             + str(random.randint(0,99999))
+                             + '\t'
+                             +  utils.randSystemName())
         return 0
 
 class ExitCommand:
@@ -365,39 +378,32 @@ he specified path.",
 
     def run(self, sysCont, sys, terminal, *args, **kwargs):
         name = args[0].split('/')[-1]
-        if args[0][0] == '/':
-            absolute = True
+        if name == '*':
+            path = system.FilePath(args[0][:-len(name)], sys.fileSystem)
         else:
-            absolute = False
-        dirPath = '/'.join(args[0].split('/')[:-1])
-        if absolute and dirPath == '':
-            dirPath = '/'
-        path = system.FilePath(dirPath, sys.fileSystem)
-        if path.status == -1:
+            path = system.FilePath(args[0], sys.fileSystem)
+        if path.status < 0:
             terminal.error("{} is not a valid path!".format(args[0]))
             return -1
-        elif path.status == -2:
-            terminal.error("{} is valid but is not a directory!".format(args[0]))
-            return -1
         else:
-            contents = sys.fileSystem.getContents(path, True)
             if name == '*':
+                contents = sys.fileSystem.getContents(path, True)
                 items = list(contents.keys())
                 for item in items:
-                    sys.fileSystem.remove(path, item, blacklist=[system.FileTypes.DIR])
+                    sys.fileSystem.remove(
+                        path,
+                        item,
+                        blacklist=[system.FileTypes.DIR]
+                        )
                 return 0
-            if name not in contents:
-                terminal.error("{} does not exist!".format(name))
-                return -1
             else:
-                ret = sys.fileSystem.remove(path, name, blacklist=[system.FileTypes.DIR])
-                if ret == -1:
-                    terminal.out("{} does not exist!".format(name))
-                    return -1
-                elif ret == -2:
-                    terminal.out("{} is a directory, use rmdir!".format(name))
-                else:
-                    return 0
+                path = system.FilePath(args[0][:-len(name)], sys.fileSystem)
+                sys.fileSystem.remove(
+                    path,
+                    name,
+                    blacklist=[system.FileTypes.DIR
+                               ])
+
 class FolderRemoveCommand:
 
     def __init__(self):
@@ -410,39 +416,27 @@ in the specified path.",
 
     def run(self, sysCont, sys, terminal, *args, **kwargs):
         name = args[0].split('/')[-1]
-        if args[0][0] == '/':
-            absolute = True
+        if name == '*':
+            path = system.FilePath(args[0][:-len(name)], sys.fileSystem)
         else:
-            absolute = False
-        dirPath = '/'.join(args[0].split('/')[:-1])
-        if absolute and dirPath == '':
-            dirPath = '/'
-        path = system.FilePath(dirPath, sys.fileSystem)
-        if path.status == -1:
+            path = system.FilePath(args[0], sys.fileSystem)
+        if path.status < 0:
             terminal.error("{} is not a valid path!".format(args[0]))
             return -1
-        elif path.status == -2:
-            terminal.error("{} is valid but is not a directory!".format(args[0]))
-            return -1
         else:
-            contents = sys.fileSystem.getContents(path, True)
             if name == '*':
+                contents = sys.fileSystem.getContents(path, True)
                 items = list(contents.keys())
                 for item in items:
-                    sys.fileSystem.remove(path, item, whitelist=[system.FileTypes.DIR])
+                    sys.fileSystem.remove(
+                        path,
+                        item,
+                        whitelist=[system.FileTypes.DIR]
+                        )
                 return 0
-            if name not in contents:
-                terminal.error("{} does not exist!".format(name))
-                return -1
             else:
-                ret = sys.fileSystem.remove(path, name, whitelist=[system.FileTypes.DIR])
-                if ret == -1:
-                    terminal.out("{} does not exist!".format(name))
-                    return -1
-                elif ret == -2:
-                    terminal.out("{} is a file, use rm!".format(name))
-                else:
-                    return 0
+                path = system.FilePath(args[0][:-len(name)], sys.fileSystem)
+                sys.fileSystem.remove(path, name, whitelist=[system.FileTypes.DIR])
 
 class MoveCommand:
 

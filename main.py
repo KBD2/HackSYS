@@ -7,7 +7,7 @@ try:
     import colorama
 except:
     print("You need the colorama module! (python -m pip install colorama)")
-    sys.exit()
+    sysModule.exit()
 
 from imports import (utils, terminal, system, commands)
 colorama.init()
