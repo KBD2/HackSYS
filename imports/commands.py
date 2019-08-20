@@ -1,4 +1,4 @@
-__version__ = '1.10.0'
+__version__ = '1.10.1'
 
 from imports import (system, utils)
 from colorama import Fore
@@ -46,8 +46,8 @@ class CommandController:
                     outputDirectory = sys.fileSystem.getContents(outputPath.iterList[:-1], True)
                     if outputFileName not in outputDirectory:
                         fileType = sys.fileSystem.getFileType(outputFileName)
-                        if fileType == system.FileTypes.DIR:
-                            fileType = system.FileTypes.MSC
+                        if fileType == system.FileTypes.DIR.value:
+                            fileType = system.FileTypes.MSC.value
                         outputDirectory[outputFileName] = {'type': fileType, 'content': ''}
                         sys.fileSystem.workDirContents = sys.fileSystem.getContents(sys.fileSystem.workingDirectory)
                     if outputType == 1:
@@ -209,25 +209,27 @@ tailed description.",
             }
 
     def run(self, sysCont, sys, terminal, *args, **kwargs):
+        out = []
         binPath = system.FilePath('/bin', sys.fileSystem)
         if binPath.status < 0:
-            terminal.out("Cannot find executables directory!")
+            terminal.error("Cannot find executables directory!")
             return -1
         else:
             foundExecs = {}
             binContents = sys.fileSystem.getContents(['bin'])
             for item in binContents:
-                if binContents[item]['type'] == system.FileTypes.BIN:
+                if binContents[item]['type'] == system.FileTypes.BIN.value:
                     execHash = hashlib.md5(
                         bytes(binContents[item]['content'], 'ascii')
                         ).hexdigest()
                     if execHash in comList:
                         foundExecs[item[:-4]] = comList[execHash]
         if len(args) == 0:
-            terminal.out("help <command> for a more detailed description.")
-            terminal.out("Commands:\n")
+            out.append("help <command> for a more detailed description.")
+            out.append("Commands:\n")
             for command in foundExecs:
-                terminal.out(command)
+                out.append(command)
+            terminal.out('\n'.join(out))
             return 0
         else:
             selected = args[0]
@@ -236,21 +238,23 @@ tailed description.",
                 return -1
             else:
                 metaData =  foundExecs[selected].meta
-                terminal.out(args[0] + ":")
-                terminal.out(metaData['descriptor'])
+                out.append(args[0] + ":")
+                out.append(metaData['descriptor'])
                 if metaData['params'][1] - metaData['params'][0] > 0:
-                    terminal.out("Number of parameters: {} to {}".format(
+                    out.append("Number of parameters: {} to {}".format(
                         metaData['params'][0],
                         metaData['params'][1])
                                  )
                 else:
-                    terminal.out("Number of parameters: {}".format(
+                    out.append("Number of parameters: {}".format(
                         metaData['params'][0]
                         ))
                 if metaData['switches']:
-                    terminal.out("Switches: {}".format(
+                    out.append("Switches: {}".format(
                         ', '.join(switch for switch in metaData['switches'])
                         ))
+                terminal.out('\n'.join(out))
+                return 0
 
 class ListCommand:
 
@@ -273,7 +277,7 @@ ng directory. Use the '-r' switch to recursively list all directories.",
             for item in tempWorkDirContents:
                 if item != 'type':
                     line = system.FileTypes(tempWorkDirContents[item]['type']).name + '\t'
-                    if tempWorkDirContents[item]['type'] != system.FileTypes.DIR:
+                    if tempWorkDirContents[item]['type'] != system.FileTypes.DIR.value:
                         line += str(len(tempWorkDirContents[item]['content']))
                     line += '\t' + item
                     out.append(line)
@@ -282,7 +286,7 @@ ng directory. Use the '-r' switch to recursively list all directories.",
 
     def outDir(self, conts, tabs, terminal, sysCont, out):
         for item in conts:
-            if conts[item]['type'] == system.FileTypes.DIR:
+            if conts[item]['type'] == system.FileTypes.DIR.value:
                 out.append('  ' * tabs + item)
                 out = self.outDir(conts[item]['content'], tabs + 1, terminal, sysCont, out)
             else:
@@ -489,7 +493,7 @@ he specified path.",
                     sys.fileSystem.remove(
                         path,
                         item,
-                        blacklist=[system.FileTypes.DIR]
+                        blacklist=[system.FileTypes.DIR.value]
                         )
                 return 0
             else:
@@ -497,8 +501,8 @@ he specified path.",
                 sys.fileSystem.remove(
                     path,
                     name,
-                    blacklist=[system.FileTypes.DIR
-                               ])
+                    blacklist=[system.FileTypes.DIR.value]
+                    )
 
 class FolderRemoveCommand:
 
@@ -527,12 +531,12 @@ in the specified path.",
                     sys.fileSystem.remove(
                         path,
                         item,
-                        whitelist=[system.FileTypes.DIR]
+                        whitelist=[system.FileTypes.DIR.value]
                         )
                 return 0
             else:
                 path = system.FilePath(args[0][:-len(name)], sys.fileSystem)
-                sys.fileSystem.remove(path, name, whitelist=[system.FileTypes.DIR])
+                sys.fileSystem.remove(path, name, whitelist=[system.FileTypes.DIR.value])
 
 class MoveCommand:
 

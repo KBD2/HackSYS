@@ -1,4 +1,4 @@
-__version__ = 'ALPHA 2.2.4'
+__version__ = 'ALPHA 2.3.0'
 
 import sys as sysModule
 import time
@@ -9,12 +9,21 @@ except:
     print("You need the colorama module! (python -m pip install colorama)")
     sysModule.exit()
 
-from imports import (utils, terminal, system, commands)
+from imports import (utils, terminal, system, commands, save)
 colorama.init()
 
 from colorama import Fore
 
 sysCont = system.SystemsController()
+#If user broke their system then quit
+bootPath = system.FilePath(
+    'sys/boot.sys',
+    sysCont.userSystem.fileSystem,
+    True,
+    system.sysFileHashes['boot.sys']
+    )
+if bootPath.status < 0:
+    sysCont.userSystem.status = system.Statuses.UNBOOTABLE
 comCont = commands.CommandController()
 
 terminal = terminal.Terminal(comCont)
@@ -46,5 +55,6 @@ while True:
     if ret == 99:
         sysModule.exit()
     else:
+        save.save(sysCont)
         continue
  

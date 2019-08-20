@@ -1,9 +1,9 @@
-__version__ = '2.5.0'
+__version__ = '2.6.0'
 
 '''Module to create a virtual system with an assigned IP, independent
 filesystem, and statuses, must be loaded along with other imports'''
 
-from imports import (utils, commands)
+from imports import (utils, commands, save)
 import json
 import random
 from enum import Enum
@@ -27,13 +27,14 @@ class SystemsController:
     '''A wrapper to make systems easier to work with'''
     
     def __init__(self):
-        self.loadDefaultSystems()
+        self.systemDict = {}
+        self.systemLookup = {}
+        if not save.load(self):
+            self.loadDefaultSystems()
         self.userSystem = self.systemDict['userSystem']
 
     def loadDefaultSystems(self):
         defaultSystems = json.load(open('data/defaultsystems.json', 'r'))
-        self.systemDict = {}
-        self.systemLookup = {}
         for sys in defaultSystems:
             IP = utils.randIP()
             self.systemDict[sys] = System(
@@ -97,7 +98,7 @@ class FilePath:
                 if fileName not in dirContents:
                     self.status = -3
                     return
-                elif dirContents[fileName]['type'] == FileTypes.DIR:
+                elif dirContents[fileName]['type'] == FileTypes.DIR.value:
                     self.status = -4
                     return
                 else:
@@ -127,7 +128,7 @@ class System:
 
     '''A virtual system'''
 
-    def __init__(self, IP, OSManu, sysData, randomHomeFiles = True):
+    def __init__(self, IP, OSManu, sysData):
         self.IP = IP
         self.fileSystem = FileSystem(SYSTEM_DEFAULT_FILESYSTEM.copy())
         self.OSManu = OSManu
@@ -139,7 +140,7 @@ class System:
             fileName = commands.comTable[item]
             fileContent = commands.comContent[fileName]
             binPath[item] = {
-                'type': FileTypes.BIN,
+                'type': FileTypes.BIN.value,
                 'content': fileContent
                 }
 
@@ -201,7 +202,7 @@ class FileSystem:
             return -1
         else:
             tempWorkDirContents[fileName] = {'type': typ}
-            if typ != FileTypes.DIR:
+            if typ != FileTypes.DIR.value:
                 tempWorkDirContents[fileName]['content'] = content
             self.workDirContents = self.getContents(self.workingDirectory)
             return 0
@@ -259,7 +260,7 @@ class FileSystem:
         setDirContents = self.getContents(pathSet.iterList, True)
         setDirContents[nameSet] = getDirContents.pop(nameGet)
         fileType = self.getFileType(nameSet)
-        if fileType != FileTypes.DIR:
+        if fileType != FileTypes.DIR.value:
             setDirContents[nameSet]['type'] = fileType
         else:
             setDirContents[nameSet]['type'] = FileTypes.MSC
@@ -273,9 +274,9 @@ class FileSystem:
             if fileName[count] == '.':
                 name = fileName[count + 1:]
         try:
-            fileType = FileTypes[name.upper()]
+            fileType = FileTypes[name.upper()].value
         except:
-            fileType = FileTypes.MSC
+            fileType = FileTypes.MSC.value
         return fileType
 
     def checkIsValidPath(self, pathList):
@@ -287,7 +288,7 @@ class FileSystem:
         for count, item in enumerate(pathList):
             if item not in tempWorkDir:
                 return -1
-            elif tempWorkDir[item]['type'] != FileTypes.DIR:
+            elif tempWorkDir[item]['type'] != FileTypes.DIR.value:
                 return -2
             else:
                 tempWorkDir = tempWorkDir[item]['content']
@@ -324,22 +325,22 @@ sysFileContents = {
 
 SYSTEM_DEFAULT_FILESYSTEM = {
     'home': {
-        'type': FileTypes.DIR,
+        'type': FileTypes.DIR.value,
         'content': {}
         },
     'bin': {
-        'type': FileTypes.DIR,
+        'type': FileTypes.DIR.value,
         'content': {}
         },
     'sys': {
-        'type': FileTypes.DIR,
+        'type': FileTypes.DIR.value,
         'content': {
             'command.sys': {
-                'type': FileTypes.SYS,
+                'type': FileTypes.SYS.value,
                 'content': getSysContent('command.json')
                 },
             'boot.sys': {
-                'type': FileTypes.SYS,
+                'type': FileTypes.SYS.value,
                 'content': getSysContent('boot.json')
                 },
             }
