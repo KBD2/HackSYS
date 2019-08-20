@@ -1,24 +1,31 @@
-__version__ = '1.1.1'
+__version__ = '1.1.2'
 
 import sys
 import time
 from colorama import Fore
-
+from imports import commands
 class Terminal:
+
+    def __init__(self, comCont):
+        self.comCont = comCont
+    
     def out(self, message, colCode=Fore.GREEN, slowWrite=True, insertNewline=True):
         assert type(message) is str # stdout only wants str
-        if slowWrite:
-            sys.stdout.write(colCode)
-            for char in message:
-                sys.stdout.write(char)
+        if self.comCont.outType[0] == commands.OutTypes.TERMINAL:
+            if slowWrite:
+                sys.stdout.write(colCode)
+                for char in message:
+                    sys.stdout.write(char)
+                    sys.stdout.flush()
+                    time.sleep(0.005)
+            else:
+                sys.stdout.write(colCode + message)
                 sys.stdout.flush()
-                time.sleep(0.005)
+            if insertNewline:
+                sys.stdout.write('\n')
+                sys.stdout.flush()
         else:
-            sys.stdout.write(colCode + message)
-            sys.stdout.flush()
-        if insertNewline:
-            sys.stdout.write('\n')
-            sys.stdout.flush()
+            self.comCont.outType[1].handleFileOutput(self.comCont.outType, self, message)
         return 0
 
     def get(self, start="", strip=True):

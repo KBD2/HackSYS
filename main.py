@@ -1,4 +1,4 @@
-__version__ = 'ALPHA 2.2.2'
+__version__ = 'ALPHA 2.2.4'
 
 import sys as sysModule
 import time
@@ -17,7 +17,7 @@ from colorama import Fore
 sysCont = system.SystemsController()
 comCont = commands.CommandController()
 
-terminal = terminal.Terminal()
+terminal = terminal.Terminal(comCont)
 terminal.out(colorama.Style.BRIGHT, colorama.Fore.GREEN, False, False)
 
 if 'idlelib.run' in sysModule.modules:
@@ -41,8 +41,9 @@ while True:
         time.sleep(60*60*24)
     userInput = terminal.get(sysCont.userSystem.IP + sysCont.userSystem.fileSystem.getPath())
     ret = comCont.feed(userInput, sysCont, sysCont.userSystem, terminal)
+    comCont.outType = [commands.OutTypes.TERMINAL]
     terminal.out('')
-    if ret == -99:
+    if ret == 99:
         sysModule.exit()
     else:
         continue

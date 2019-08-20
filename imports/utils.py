@@ -1,4 +1,4 @@
-__version__ = '1.1.1'
+__version__ = '1.1.2'
 
 import random
 import time
@@ -88,12 +88,12 @@ def randSystemName():
         ])
 
 def serverBootSequence(sys, terminal):
-    terminal.out(sys.OSManu)
+    terminal.out(sys.OSManu, Fore.WHITE)
     time.sleep(1)
-    terminal.out("Validating Boot Files", Fore.GREEN, True, False)
+    terminal.out("Validating Boot Files", Fore.WHITE, True, False)
     for i in range(3):
         time.sleep(0.5)
-        terminal.out(".", Fore.GREEN, True, False)
+        terminal.out(".", Fore.WHITE, True, False)
     terminal.out("\t", Fore.BLACK, True, False)
     time.sleep(0.5)
     if sys.status == system.Statuses.UNBOOTABLE:
@@ -104,26 +104,27 @@ def serverBootSequence(sys, terminal):
     terminal.out("{}KB Memory ({}KB extended)".format(
         2**random.randint(10,14),
         2**random.randint(10,14)
-        ))
+        ), Fore.WHITE)
     time.sleep(0.5)
-    terminal.out("{}\" Disk".format(random.choice([3.5,5.2])))
+    terminal.out("{}\" Disk".format(random.choice([3.5,5.2])), Fore.WHITE)
     time.sleep(0.5)
-    terminal.out("Checking Disk", Fore.GREEN, True, False)
+    terminal.out("Checking Disk", Fore.WHITE, True, False)
     for i in range(3):
         time.sleep(0.5)
-        terminal.out(".", Fore.GREEN, True, False)
+        terminal.out(".", Fore.WHITE, True, False)
     terminal.out('')
     for i in range(8):
         if random.randrange(0,4) == 0:
-            terminal.out("BLOCK {}\t\t\t\t".format(i), Fore.GREEN, True, False)
+            terminal.out("BLOCK {}\t\t\t\t".format(i), Fore.WHITE, True, False)
             terminal.error("[ERROR]")
         else:
-            terminal.out("BLOCK {}\t\t\t\t[OK]".format(i))
-    terminal.out("Connecting to Network", Fore.GREEN, True, False)
+            terminal.out("BLOCK {}\t\t\t\t".format(i), Fore.WHITE, True, False)
+            terminal.out("[OK]")
+    terminal.out("Connecting to Network", Fore.WHITE, True, False)
     for i in range(3):
         time.sleep(0.5)
-        terminal.out(".", Fore.GREEN, True, False)
-    terminal.out("\nIP Address: {}".format(sys.IP))
-    terminal.out("System OK Proceed to terminal")
+        terminal.out(".", Fore.WHITE, True, False)
+    terminal.out("\nIP Address: {}".format(sys.IP), Fore.WHITE)
+    terminal.out("System OK Proceed to terminal", Fore.WHITE)
     time.sleep(0.5)
     return 0

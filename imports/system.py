@@ -1,4 +1,4 @@
-__version__ = '2.4.2'
+__version__ = '2.5.0'
 
 '''Module to create a virtual system with an assigned IP, independent
 filesystem, and statuses, must be loaded along with other imports'''
@@ -291,6 +291,15 @@ class FileSystem:
                 return -2
             else:
                 tempWorkDir = tempWorkDir[item]['content']
+        return 0
+
+    def handleFileOutput(self, output, terminal, message):
+        outputDir = self.getContents(output[2].iterList[:-1], True)
+        name = output[2].iterList[-1]
+        if output[0] == commands.OutTypes.FILEOVERWRITE:
+            outputDir[name]['content'] = message
+        elif output[0] == commands.OutTypes.FILEAPPEND:
+            outputDir[name]['content'] += message
         return 0
 
 def getSysHash(fileName):

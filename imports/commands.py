@@ -1,4 +1,4 @@
-__version__ = '1.9.3'
+__version__ = '1.10.0'
 
 from imports import (system, utils)
 from colorama import Fore
@@ -6,13 +6,19 @@ import hashlib
 import random
 import json
 import time
+from enum import Enum
+
+class OutTypes(Enum):
+    TERMINAL = 0
+    FILEOVERWRITE = 1
+    FILEAPPEND = 2
 
 class CommandController:
 
     '''A wrapper to make parsing, validating, and executing commands easier'''
 
     def __init__(self):
-        pass
+        self.outType = [OutTypes.TERMINAL]
 
     def feed(self, command, sysCont, sys, terminal):
         if command == '':
@@ -20,6 +26,35 @@ class CommandController:
         command = self.handleSpaces(command)
         commands = command.split('¶')
         for command in commands:
+            if '|' in command:
+                outputType = command.count('|')
+                outputFile = command[len(command) - command[-1::-1].find('|'):]
+                outputFile = ''.join(char for char in outputFile if char not in [
+                    '§',
+                    '"',
+                    "'"
+                    ])
+                outputPath = system.FilePath(outputFile, sys.fileSystem, True)
+                if outputPath.status not in [0, -3]:
+                    terminal.error("Invalid output path!")
+                    return -1
+                elif outputType == 2 and outputPath.status == -3:
+                    terminal.error("{} doesn't exist!".format(outputFile))
+                    return -1
+                else:
+                    outputFileName = outputFile.split('/')[-1]
+                    outputDirectory = sys.fileSystem.getContents(outputPath.iterList[:-1], True)
+                    if outputFileName not in outputDirectory:
+                        fileType = sys.fileSystem.getFileType(outputFileName)
+                        if fileType == system.FileTypes.DIR:
+                            fileType = system.FileTypes.MSC
+                        outputDirectory[outputFileName] = {'type': fileType, 'content': ''}
+                        sys.fileSystem.workDirContents = sys.fileSystem.getContents(sys.fileSystem.workingDirectory)
+                    if outputType == 1:
+                        self.outType = [OutTypes.FILEOVERWRITE, sys.fileSystem, outputPath]
+                    elif outputType == 2:
+                        self.outType = [OutTypes.FILEAPPEND, sys.fileSystem, outputPath]
+                command = command[:command.find('|')]
             parts = command.split('§')
             count = 0
             while count < len(parts):
@@ -129,7 +164,11 @@ class CommandController:
                     terminal.error("Incorrect number of parameters!")
                     return -1
                 else:
-                    command.run(sysCont, sys, terminal, *params, **switches)
+                    ret = command.run(sysCont, sys, terminal, *params, **switches)
+                    if ret == 99:
+                        return ret
+                    else:
+                        continue
 
     def handleSpaces(self, string):
         spaceHolder = '§'
@@ -149,7 +188,14 @@ class CommandController:
                 if lastQuote:
                     continue
                 else:
-                    char = string = string[:count] + '¶' + string[count + 1:]
+                    string = string[:count] + '¶' + string[count + 1:]
+                    continue
+            elif char == '>':
+                if lastQuote:
+                    continue
+                else:
+                    string = string[:count] + '|' + string[count + 1:]
+                    continue
         return string
 
 class HelpCommand:
@@ -219,25 +265,29 @@ ng directory. Use the '-r' switch to recursively list all directories.",
     def run(self, sysCont, sys, terminal, *args, **kwargs):
         tempWorkDirContents = sys.fileSystem.workDirContents.copy()
         if kwargs['-r']:
-            self.outDir(tempWorkDirContents, 0, terminal)
+            out = self.outDir(tempWorkDirContents, 0, terminal, sysCont, [])
+            terminal.out('\n'.join(out))
         else:
-            terminal.out('Type\tSize\tName\n')
+            out = []
+            out.append('Type\tSize\tName\n')
             for item in tempWorkDirContents:
                 if item != 'type':
                     line = system.FileTypes(tempWorkDirContents[item]['type']).name + '\t'
                     if tempWorkDirContents[item]['type'] != system.FileTypes.DIR:
                         line += str(len(tempWorkDirContents[item]['content']))
                     line += '\t' + item
-                    terminal.out(line)
+                    out.append(line)
+            terminal.out('\n'.join(out))
         return 0
 
-    def outDir(self, conts, tabs, terminal):
+    def outDir(self, conts, tabs, terminal, sysCont, out):
         for item in conts:
             if conts[item]['type'] == system.FileTypes.DIR:
-                terminal.out('  ' * tabs + item, Fore.MAGENTA)
-                self.outDir(conts[item]['content'], tabs + 1, terminal)
+                out.append('  ' * tabs + item)
+                out = self.outDir(conts[item]['content'], tabs + 1, terminal, sysCont, out)
             else:
-                terminal.out('  ' * tabs + item, Fore.WHITE)
+                out.append('  ' * tabs + item)
+        return out
 
 class ChangeDirCommand:
 
@@ -272,11 +322,13 @@ class OutputCommand:
 
     def run(self, sysCont, sys, terminal, *args, **kwargs):
         path = system.FilePath(args[0], sys.fileSystem, True)
+        name = args[0].split('/')[-1]
+        pathNoFile = system.FilePath(args[0][:-len(name)], sys.fileSystem)
         if path.status < 0:
             terminal.error("{} is not a valid path!".format(args[0]))
             return -1
         else:
-            out = sys.fileSystem.output(path, name)
+            out = sys.fileSystem.output(pathNoFile, name)
             terminal.out(out)
             return 0
 
@@ -290,26 +342,28 @@ class ScanCommand:
             }
 
     def run(self, sysCont, sys, terminal, *args, **kwargs):
+        out = []
         connected = sysCont.getConnectedIPs(sys.IP)
-        terminal.out("IP\t\tPort\tName\n")
+        out.append("IP\t\tPort\tName\n")
         for item in connected:
             for i in range(random.randint(0,3)):
-                terminal.out(utils.randIP()
+                out.append(utils.randIP()
                              + '\t'
                              + str(random.randint(0,99999))
                              + '\t'
                              + utils.randSystemName())
-            terminal.out(item
+            out.append(item
                          + '\t'
                          + str(random.randint(0,99999))
                          + '\t'
                          +  sysCont.getName(item))
             for i in range(random.randint(0,3)):
-                terminal.out(utils.randIP()
+                out.append(utils.randIP()
                              + '\t'
                              + str(random.randint(0,99999))
                              + '\t'
                              +  utils.randSystemName())
+        terminal.out('\n'.join(out))
         return 0
 
 class ExitCommand:
@@ -322,7 +376,7 @@ class ExitCommand:
             }
 
     def run(self, sysCont, sys, terminal, *args, **kwargs):
-        return -99
+        return 99
 
 class AliasCommand:
 
@@ -354,13 +408,42 @@ class TerminalOutCommand:
 
     def __init__(self):
         self.meta = {
-            'descriptor': "Outputs the given string.",
-            'params': [1,1],
-            'switches': None
+            'descriptor': "Outputs the given string. Use '-c' and specify a col\
+our as the first parameter to output as one of the following:\nblue\ncyan\ngree\
+n\nmagenta\nred\nwhite\nyellow\nUse '-nn' to stop a newline being added.",
+            'params': [1,2],
+            'switches': ['-c', '-nn']
+            }
+        self.colours = {
+            'blue': Fore.BLUE,
+            'cyan': Fore.CYAN,
+            'green': Fore.GREEN,
+            'magenta': Fore.MAGENTA,
+            'red': Fore.RED,
+            'white': Fore.WHITE,
+            'yellow': Fore.YELLOW
             }
 
     def run(self, sysCont, sys, terminal, *args, **kwargs):
-        terminal.out(args[0])
+        if kwargs['-c']:
+            if len(args) != 2:
+                terminal.error("Incorrect number of parameters!")
+                return -1
+            elif args[0] not in self.colours:
+                terminal.error("{} is not a colour!".format(args[0]))
+                return -1
+            else:
+                colour = self.colours[args[0]]
+        else:
+            colour = Fore.GREEN
+        if kwargs['-nn']:
+            insertNewline = False
+        else:
+            insertNewline = True
+        if kwargs['-c']:
+            terminal.out(args[1], colour, True, insertNewline)
+        else:
+            terminal.out(args[0], colour, True, insertNewline)
         return 0
 
 class RestartCommand:
