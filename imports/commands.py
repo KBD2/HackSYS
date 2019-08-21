@@ -1,4 +1,4 @@
-__version__ = '1.10.1'
+__version__ = '1.10.2'
 
 from imports import (system, utils)
 from colorama import Fore
@@ -42,18 +42,19 @@ class CommandController:
                     terminal.error("{} doesn't exist!".format(outputFile))
                     return -1
                 else:
-                    outputFileName = outputFile.split('/')[-1]
+                    outputFileName = outputPath.iterList[-1]
                     outputDirectory = sys.fileSystem.getContents(outputPath.iterList[:-1], True)
                     if outputFileName not in outputDirectory:
                         fileType = sys.fileSystem.getFileType(outputFileName)
                         if fileType == system.FileTypes.DIR.value:
                             fileType = system.FileTypes.MSC.value
                         outputDirectory[outputFileName] = {'type': fileType, 'content': ''}
+                        sys.addLog(sys.IP, "Created " + outputFileName)
                         sys.fileSystem.workDirContents = sys.fileSystem.getContents(sys.fileSystem.workingDirectory)
                     if outputType == 1:
-                        self.outType = [OutTypes.FILEOVERWRITE, sys.fileSystem, outputPath]
+                        self.outType = [OutTypes.FILEOVERWRITE, sys.fileSystem, outputPath, sys]
                     elif outputType == 2:
-                        self.outType = [OutTypes.FILEAPPEND, sys.fileSystem, outputPath]
+                        self.outType = [OutTypes.FILEAPPEND, sys.fileSystem, outputPath, sys]
                 command = command[:command.find('|')]
             parts = command.split('§')
             count = 0
@@ -490,11 +491,15 @@ he specified path.",
                 contents = sys.fileSystem.getContents(path, True)
                 items = list(contents.keys())
                 for item in items:
-                    sys.fileSystem.remove(
+                    ret = sys.fileSystem.remove(
                         path,
                         item,
                         blacklist=[system.FileTypes.DIR.value]
                         )
+                    if ret == 0:
+                        terminal.out("Removed " + item)
+                        if sys.fileSystem.getFileType(item) != system.FileTypes.LOG.value:
+                            sys.addLog(sys.IP, "Removed " + item)
                 return 0
             else:
                 path = system.FilePath(args[0][:-len(name)], sys.fileSystem)
@@ -503,6 +508,9 @@ he specified path.",
                     name,
                     blacklist=[system.FileTypes.DIR.value]
                     )
+                if sys.fileSystem.getFileType(name) != system.FileTypes.LOG.value:
+                    sys.addLog(sys.IP, "Removed " + name)
+                return 0
 
 class FolderRemoveCommand:
 
@@ -528,15 +536,24 @@ in the specified path.",
                 contents = sys.fileSystem.getContents(path, True)
                 items = list(contents.keys())
                 for item in items:
-                    sys.fileSystem.remove(
+                    ret = sys.fileSystem.remove(
                         path,
                         item,
                         whitelist=[system.FileTypes.DIR.value]
                         )
+                    if ret == 0:
+                        terminal.out("Removed " + item)
+                        sys.addLog(sys.IP, "Removed " + item)
                 return 0
             else:
                 path = system.FilePath(args[0][:-len(name)], sys.fileSystem)
-                sys.fileSystem.remove(path, name, whitelist=[system.FileTypes.DIR.value])
+                sys.fileSystem.remove(
+                    path,
+                    name,
+                    whitelist=[system.FileTypes.DIR.value]
+                    )
+                sys.addLog(sys.IP, "Removed " + name)
+                return 0
 
 class MoveCommand:
 
@@ -561,6 +578,7 @@ e second specified path.",
             terminal.error("{} is not a valid path!".format(args[1]))
             return -1
         ret = sys.fileSystem.move(pathGet, nameGet, pathSet, nameSet)
+        sys.addLog(sys.IP, "Moved {} to {}".format(args[0], args[1]))
         return 0
 
 def getExecHash(fileName):

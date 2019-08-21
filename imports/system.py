@@ -1,4 +1,4 @@
-__version__ = '2.6.0'
+__version__ = '2.7.0'
 
 '''Module to create a virtual system with an assigned IP, independent
 filesystem, and statuses, must be loaded along with other imports'''
@@ -9,6 +9,7 @@ import random
 from enum import Enum
 import hashlib
 import copy
+import time
 
 class FileTypes(Enum):
     DIR = 0
@@ -16,6 +17,7 @@ class FileTypes(Enum):
     BIN = 2
     DAT = 3
     SYS = 4
+    LOG = 5
     MSC = 99
 
 class Statuses(Enum):
@@ -150,13 +152,36 @@ class System:
 
     def restart(self, sysCont):
         self.exit()
-        bootFilePath = FilePath('sys/boot.sys', self.fileSystem, True, sysFileHashes['boot.sys'])
+        bootFilePath = FilePath(
+            'sys/boot.sys',
+            self.fileSystem,
+            True,
+            sysFileHashes['boot.sys']
+            )
         if bootFilePath.status < 0:
             self.status = Statuses.UNBOOTABLE
             return -1
         else:
             self.status = Statuses.ONLINE
             return 0
+
+    def addLog(self, IP, log):
+        logPath = FilePath('log', self.fileSystem)
+        if logPath.status < 0:
+            self.fileSystem.path['log'] = {
+                'type': FileTypes.DIR.value,
+                'content': {}
+                }
+        logContent = self.fileSystem.getContents(['log'], True)
+        concatenated = '{}@{}-{}'.format(IP, time.strftime('%H:%M:%S'), log)
+        logContent[concatenated + '.log'] = {
+            'type': FileTypes.LOG.value,
+            'content': concatenated
+            }
+        self.fileSystem.workDirContents = self.fileSystem.getContents(
+            self.fileSystem.workingDirectory
+            )
+        return 0
 
 class FileSystem:
 
@@ -264,7 +289,7 @@ class FileSystem:
         if fileType != FileTypes.DIR.value:
             setDirContents[nameSet]['type'] = fileType
         else:
-            setDirContents[nameSet]['type'] = FileTypes.MSC
+            setDirContents[nameSet]['type'] = FileTypes.MSC.value
         self.correctWorkingDirectory()
         self.workDirContents = self.getContents(self.workingDirectory)
         return 0
@@ -274,6 +299,9 @@ class FileSystem:
         for count in range(len(fileName) - 1, -1, -1):
             if fileName[count] == '.':
                 name = fileName[count + 1:]
+                break
+            else:
+                continue
         try:
             fileType = FileTypes[name.upper()].value
         except:
@@ -345,5 +373,9 @@ SYSTEM_DEFAULT_FILESYSTEM = {
                 'content': getSysContent('boot.json')
                 },
             }
+        },
+    'log': {
+        'type': FileTypes.DIR.value,
+        'content': {}
         }
     }

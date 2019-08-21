@@ -1,9 +1,9 @@
 {
 	"userSystem": {
-		"connected": [
-			"testSystem1",
-			"testSystem2"
-		],
+		"connected": {
+			"testSystem1": ["ssh", "admin", "password"],
+			"testSystem2": ["ssh", "admin", "password"]
+		},
 		"executables": [
 			"cat.bin",
 			"cd.bin",
@@ -20,24 +20,24 @@
 		]
 	},
 	"testSystem1": {
-		"connected": [
-			"testSystem2",
-			"userSystem"
-		],
+		"connected": {
+			"testSystem2": ["ssh", "admin", "password"],
+			"userSystem": ["ssh", "admin", "password"]
+		},
 		"executables": []
 	},
 	"testSystem2": {
-		"connected": [
-			"testSystem1",
-			"userSystem",
-			"testSystem3"
-		],
+		"connected": {
+			"testSystem1": ["ssh", "admin", "password"],
+			"userSystem": ["ssh", "admin", "password"],
+			"testSystem3": ["ssh", "admin", "password"]
+		},
 		"executables": []
 	},
 	"testSystem3": {
-		"connected": [
-			"testSystem2"
-		],
+		"connected": {
+			"testSystem2": ["ssh", "admin", "password"]
+		},
 		"executables": []
 	}
 }
