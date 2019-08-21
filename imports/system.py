@@ -1,4 +1,4 @@
-__version__ = '2.7.0'
+__version__ = '2.7.1'
 
 '''Module to create a virtual system with an assigned IP, independent
 filesystem, and statuses, must be loaded along with other imports'''
@@ -166,7 +166,7 @@ class System:
             return 0
 
     def addLog(self, IP, log):
-        logPath = FilePath('log', self.fileSystem)
+        logPath = FilePath('/log', self.fileSystem)
         if logPath.status < 0:
             self.fileSystem.path['log'] = {
                 'type': FileTypes.DIR.value,
@@ -227,9 +227,7 @@ class FileSystem:
         if fileName in tempWorkDirContents:
             return -1
         else:
-            tempWorkDirContents[fileName] = {'type': typ}
-            if typ != FileTypes.DIR.value:
-                tempWorkDirContents[fileName]['content'] = content
+            tempWorkDirContents[fileName] = {'type': typ, 'content': content}
             self.workDirContents = self.getContents(self.workingDirectory)
             return 0
 
@@ -329,7 +327,10 @@ class FileSystem:
         if output[0] == commands.OutTypes.FILEOVERWRITE:
             outputDir[name]['content'] = message
         elif output[0] == commands.OutTypes.FILEAPPEND:
-            outputDir[name]['content'] += message
+            if outputDir[name]['content'] is not None:
+                outputDir[name]['content'] += message
+            else:
+                outputDir[name]['content'] = message
         return 0
 
 def getSysHash(fileName):

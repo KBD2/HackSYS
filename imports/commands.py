@@ -1,4 +1,4 @@
-__version__ = '1.10.2'
+__version__ = '1.11.0'
 
 from imports import (system, utils)
 from colorama import Fore
@@ -48,8 +48,17 @@ class CommandController:
                         fileType = sys.fileSystem.getFileType(outputFileName)
                         if fileType == system.FileTypes.DIR.value:
                             fileType = system.FileTypes.MSC.value
-                        outputDirectory[outputFileName] = {'type': fileType, 'content': ''}
-                        sys.addLog(sys.IP, "Created " + outputFileName)
+                        sys.fileSystem.make(
+                            system.FilePath(
+                                outputFile[:-len(outputFileName)],
+                                sys.fileSystem
+                                ),
+                            outputFileName,
+                            fileType
+                            )
+                        sys.addLog(sys.IP, "Created " + '/' + '/'.join(
+                            outputPath.iterList
+                            ))
                         sys.fileSystem.workDirContents = sys.fileSystem.getContents(sys.fileSystem.workingDirectory)
                     if outputType == 1:
                         self.outType = [OutTypes.FILEOVERWRITE, sys.fileSystem, outputPath, sys]
@@ -95,33 +104,16 @@ class CommandController:
             elif sysPath.status == -5:
                 terminal.error("SYSTEM ERROR: INVALID COMMAND EXECUTABLE")
                 return -1
-            currBinPath = system.FilePath(
+            binPath = system.FilePath(
                 '/bin/' + partCommandFileName,
                 sys.fileSystem,
                 True
                 )
-            userBinPath = system.FilePath(
-                '/bin/' + partCommandFileName,
-                sysCont.userSystem.fileSystem,
-                True
-                )
-            if currBinPath.status < 0:
-                found = False
+            if binPath.status < 0:
+                terminal.error("Cannot find {} executable file!".format(partCommand))
+                return -1
             else:
-                found = True
                 execDir = sys.fileSystem.getContents(['bin'])
-            if not found:
-                if userPath.status in [-1,-2,-3,-4]:
-                    terminal.error("SYSTEM ERROR: CANNOT FIND COMMAND EXECUTABLE")
-                    return -1
-                elif userPath.status == -5:
-                    terminal.error("SYSTEM ERROR: INVALID COMMAND EXECUTABLE")
-                    return -1
-                elif userBinPath.status < 0:
-                    terminal.error("Cannot find {} executable file!".format(partCommand))
-                    return -1
-                else:
-                    execDir = sysCont.userSystem.getContents(['bin'])
             execHash = hashlib.md5(
                 bytes(execDir[partCommandFileName]['content'], 'ascii')
                 ).hexdigest()
@@ -279,7 +271,10 @@ ng directory. Use the '-r' switch to recursively list all directories.",
                 if item != 'type':
                     line = system.FileTypes(tempWorkDirContents[item]['type']).name + '\t'
                     if tempWorkDirContents[item]['type'] != system.FileTypes.DIR.value:
-                        line += str(len(tempWorkDirContents[item]['content']))
+                        if tempWorkDirContents[item]['content'] is not None:
+                            line += str(len(tempWorkDirContents[item]['content']))
+                        else:
+                            line += '0'
                     line += '\t' + item
                     out.append(line)
             terminal.out('\n'.join(out))
@@ -581,6 +576,58 @@ e second specified path.",
         sys.addLog(sys.IP, "Moved {} to {}".format(args[0], args[1]))
         return 0
 
+class FileMakeCommand:
+
+    def __init__(self):
+        self.meta = {
+            'descriptor': "Creates an empty file at the specified path.",
+            'params': [1,1],
+            'switches': None
+            }
+
+    def run(self, sysCont, sys, terminal, *args, **kwargs):
+        name = args[0].split('/')[-1]
+        makePath = system.FilePath(args[0][:-len(name)], sys.fileSystem)
+        if makePath.status < 0:
+            terminal.error("{} is not a valid path!".format(args[0]))
+            return -1
+        else:
+            typ = sys.fileSystem.getFileType(name)
+            if typ == system.FileTypes.DIR.value:
+                typ = system.FileTypes.MSC.value
+            ret = sys.fileSystem.make(makePath, name, typ)
+            if ret == -1:
+                terminal.error("{} already exists!".format(args[0]))
+                return -1
+            return 0
+
+class FolderMakeCommand:
+
+    def __init__(self):
+        self.meta = {
+            'descriptor': "Creates an empty folder at the specified path.",
+            'params': [1,1],
+            'switches': None
+            }
+
+    def run(self, sysCont, sys, terminal, *args, **kwargs):
+        name = args[0].split('/')[-1]
+        makePath = system.FilePath(args[0][:-len(name)], sys.fileSystem)
+        if makePath.status < 0:
+            terminal.error("{} is not a valid path!".format(args[0]))
+            return -1
+        else:
+            ret = sys.fileSystem.make(
+                makePath,
+                name,
+                system.FileTypes.DIR.value,
+                {}
+                )
+            if ret == -1:
+                terminal.error("{} already exists!".format(args[0]))
+                return -1
+            return 0
+
 def getExecHash(fileName):
     with open('data/executables/' + fileName, 'r') as file:
         fileData = json.loads(file.read())
@@ -603,7 +650,9 @@ comList = {
     getExecHash('FileRemoveCommand.json'): FileRemoveCommand(),
     getExecHash('FolderRemoveCommand.json'): FolderRemoveCommand(),
     getExecHash('AliasCommand.json'): AliasCommand(),
-    getExecHash('MoveCommand.json'): MoveCommand()
+    getExecHash('MoveCommand.json'): MoveCommand(),
+    getExecHash('FileMakeCommand.json'): FileMakeCommand(),
+    getExecHash('FolderMakeCommand.json'): FolderMakeCommand()
     }
 
 #For use when making a system
@@ -619,7 +668,9 @@ comTable = {
     'rm.bin':       'FileRemoveCommand.json',
     'rmdir.bin':    'FolderRemoveCommand.json',
     'alias.bin':    'AliasCommand.json',
-    'mv.bin':       'MoveCommand.json'
+    'mv.bin':       'MoveCommand.json',
+    'touch.bin':    'FileMakeCommand.json',
+    'mkdir.bin':    'FolderMakeCommand.json'
     }
 
 comContent = {}

@@ -10,3 +10,5 @@ FileRemoveCommand
 FolderRemoveCommand
 AliasCommand
 MoveCommand
+FileMakeCommand
+FolderMakeCommand

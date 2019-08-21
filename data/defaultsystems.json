@@ -16,7 +16,9 @@
 			"netstat.bin",
 			"restart.bin",
 			"alias.bin",
-			"mv.bin"
+			"mv.bin",
+			"touch.bin",
+			"mkdir.bin"
 		]
 	},
 	"testSystem1": {
