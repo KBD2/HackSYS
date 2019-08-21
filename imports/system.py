@@ -8,6 +8,7 @@ import json
 import random
 from enum import Enum
 import hashlib
+import copy
 
 class FileTypes(Enum):
     DIR = 0
@@ -130,7 +131,7 @@ class System:
 
     def __init__(self, IP, OSManu, sysData):
         self.IP = IP
-        self.fileSystem = FileSystem(SYSTEM_DEFAULT_FILESYSTEM.copy())
+        self.fileSystem = FileSystem(copy.deepcopy(SYSTEM_DEFAULT_FILESYSTEM))
         self.OSManu = OSManu
         self.connected = sysData['connected']
         self.status = Statuses.ONLINE
@@ -163,7 +164,7 @@ class FileSystem:
     with an inbuilt working directory'''
 
     def __init__(self, contents={}):
-        self.path = contents
+        self.path = contents.copy()
         self.workingDirectory = []
         self.workDirContents = self.getContents([])
 
