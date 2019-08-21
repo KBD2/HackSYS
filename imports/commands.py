@@ -1,4 +1,4 @@
-__version__ = '1.11.0'
+__version__ = '1.11.1'
 
 from imports import (system, utils)
 from colorama import Fore
@@ -599,6 +599,8 @@ class FileMakeCommand:
             if ret == -1:
                 terminal.error("{} already exists!".format(args[0]))
                 return -1
+            else:
+                sys.addLog(sys.IP, "Created {}".format(args[0]))
             return 0
 
 class FolderMakeCommand:
@@ -626,6 +628,8 @@ class FolderMakeCommand:
             if ret == -1:
                 terminal.error("{} already exists!".format(args[0]))
                 return -1
+            else:
+                sys.addLog(sys.IP, "Created {}".format(args[0]))
             return 0
 
 def getExecHash(fileName):
