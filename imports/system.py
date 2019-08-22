@@ -93,10 +93,10 @@ class FilePath:
                     self.iterList.append(item)
         self.iterList = list(item for item in self.iterList if item != '')
         self.length = len(self.iterList)
-        if self.length == 0:
-            self.status = -6
-            return
         if isFile:
+            if self.length == 0:
+                self.status = -6
+                return
             fileName = self.iterList[-1]
             filePath = self.iterList[:-1]
             self.status = fileSystem.checkIsValidPath(filePath)
