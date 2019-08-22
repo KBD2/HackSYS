@@ -73,6 +73,7 @@ class FilePath:
         # -3: file doesn't exist
         # -4: file is actually a directory
         # -5: file exists, but hash doesn't match
+        # -6: empty path
         assert type(path) is str
         self.iterList = []
         if len(path) > 0 and path[0] == '/':
@@ -92,6 +93,9 @@ class FilePath:
                     self.iterList.append(item)
         self.iterList = list(item for item in self.iterList if item != '')
         self.length = len(self.iterList)
+        if self.length == 0:
+            self.status = -6
+            return
         if isFile:
             fileName = self.iterList[-1]
             filePath = self.iterList[:-1]

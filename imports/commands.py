@@ -72,6 +72,8 @@ class CommandController:
                     del parts[count]
                 else:
                     count += 1
+            if len(parts) == 0:
+                return 0
             partCommand = parts[0]
             if partCommand in sys.aliasTable:
                 try:
