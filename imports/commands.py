@@ -1,4 +1,4 @@
-__version__ = '1.11.1'
+__version__ = '1.11.2'
 
 from imports import (system, utils)
 from colorama import Fore
@@ -317,9 +317,10 @@ class OutputCommand:
 
     def __init__(self):
         self.meta = {
-            'descriptor': "Outputs the contents of the file at the specified path.",
+            'descriptor': "Outputs the contents of the file at the specified pa\
+th. Use '-p' to pretty print.",
             'params': [1,1],
-            'switches': None
+            'switches': ['-p']
             }
 
     def run(self, sysCont, sys, terminal, *args, **kwargs):
@@ -331,7 +332,31 @@ class OutputCommand:
             return -1
         else:
             out = sys.fileSystem.output(pathNoFile, name)
-            terminal.out(out)
+            if kwargs['-p']:
+                skip = False
+                for count, char in enumerate(out):
+                    if skip:
+                        skip = False
+                        continue
+                    if char == '\\':
+                        if out[count + 1] == 'n':
+                            skip = True
+                            terminal.out('', Fore.GREEN, False)
+                        elif out[count + 1] == 't':
+                            skip = True
+                            terminal.out('\t', Fore.GREEN, False, False)
+                        elif out[count + 1] == '\\':
+                            skip = True
+                            terminal.out('\\', Fore.GREEN, True, False)
+                        else:
+                            terminal.error("\nUnrecognised escape sequence!")
+                            return -1
+                    else:
+                        terminal.out(char, Fore.GREEN, True, False)
+                terminal.out('')
+                return 0
+            else:
+                terminal.out(out)
             return 0
 
 class ScanCommand:
