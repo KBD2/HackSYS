@@ -1,4 +1,4 @@
-__version__ = '2.7.2'
+__version__ = '2.7.3'
 
 '''Module to create a virtual system with an assigned IP, independent
 filesystem, and statuses, must be loaded along with other imports'''
@@ -279,7 +279,7 @@ class FileSystem:
         self.workingDirectory = []
         self.workDirContents = self.getContents()
 
-    def move(self, pathGet, nameGet, pathSet, nameSet):
+    def move(self, pathGet, nameGet, pathSet, nameSet, isDir=False):
         '''Moves the file at path 1 to the file at path 2'''
         #  0: Successful
         # -1: Path doesn't exist
@@ -288,7 +288,9 @@ class FileSystem:
         setDirContents = self.getContents(pathSet.iterList, True)
         setDirContents[nameSet] = getDirContents.pop(nameGet)
         fileType = self.getFileType(nameSet)
-        if fileType != FileTypes.DIR.value:
+        if isDir:
+            setDirContents[nameSet]['type'] = FileTypes.DIR.value
+        elif fileType != FileTypes.DIR.value:
             setDirContents[nameSet]['type'] = fileType
         else:
             setDirContents[nameSet]['type'] = FileTypes.MSC.value
