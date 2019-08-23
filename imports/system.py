@@ -1,4 +1,4 @@
-__version__ = '2.7.1'
+__version__ = '2.7.2'
 
 '''Module to create a virtual system with an assigned IP, independent
 filesystem, and statuses, must be loaded along with other imports'''
@@ -227,7 +227,7 @@ class FileSystem:
         #  -1: Path already exists
         assert type(path) is FilePath
         tempWorkDir = path.iterList.copy()
-        tempWorkDirContents = self.getContents(self.workingDirectory, True)
+        tempWorkDirContents = self.getContents(tempWorkDir, True)
         if fileName in tempWorkDirContents:
             return -1
         else:

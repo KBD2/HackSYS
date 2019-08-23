@@ -1,4 +1,4 @@
-__version__ = '1.11.2'
+__version__ = '1.11.3'
 
 from imports import (system, utils)
 from colorama import Fore
@@ -111,7 +111,9 @@ class CommandController:
                 sys.fileSystem,
                 True
                 )
-            if binPath.status < 0:
+            if partCommandFileName in sys.fileSystem.workDirContents:
+                execDir = sys.fileSystem.workDirContents.copy()
+            elif binPath.status < 0:
                 terminal.error("Cannot find {} executable file!".format(partCommand))
                 return -1
             else:
