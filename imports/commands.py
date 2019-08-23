@@ -1,4 +1,4 @@
-__version__ = '1.11.3'
+__version__ = '1.11.4'
 
 from imports import (system, utils)
 from colorama import Fore
@@ -583,10 +583,10 @@ class MoveCommand:
 
     def __init__(self):
         self.meta = {
-            'descriptor': "Moves the file at the specified path to th\
-e second specified path.",
+            'descriptor': "Moves the file at the specified path to the second s\
+pecified path. Use '-f' to force replace (can be destructive).",
             'params': [2,2],
-            'switches': None
+            'switches': ['-f']
             }
 
     def run(self, sysCont, sys, terminal, *args, **kwargs):
@@ -598,6 +598,11 @@ e second specified path.",
         pathGet = system.FilePath(args[0][:-len(nameGet)], sys.fileSystem)
         nameSet = args[1].split('/')[-1]
         pathSet = system.FilePath(args[1][:-len(nameSet)], sys.fileSystem)
+        if not kwargs['-f']:
+            pathSetConts = sys.fileSystem.getContents(pathSet.iterList)
+            if nameSet in pathSetConts:
+                terminal.error("{} already exists!".format(nameSet))
+                return -1
         if pathSet.status < 0:
             terminal.error("{} is not a valid path!".format(args[1]))
             return -1
