@@ -1,4 +1,4 @@
-__version__ = '2.7.3'
+__version__ = '2.7.4'
 
 '''Module to create a virtual system with an assigned IP, independent
 filesystem, and statuses, must be loaded along with other imports'''
@@ -37,7 +37,8 @@ class SystemsController:
         self.userSystem = self.systemDict['userSystem']
 
     def loadDefaultSystems(self):
-        defaultSystems = json.load(open('data/defaultsystems.json', 'r'))
+        with open('data/defaultsystems.json', 'r') as file:
+            defaultSystems = json.loads(file.read())
         for sys in defaultSystems:
             IP = utils.randIP()
             self.systemDict[sys] = System(
@@ -140,8 +141,11 @@ class System:
         self.fileSystem = FileSystem(copy.deepcopy(SYSTEM_DEFAULT_FILESYSTEM))
         self.OSManu = OSManu
         self.connected = sysData['connected']
-        self.status = Statuses.ONLINE
+        self.status = Statuses.ONLINE.value
         self.aliasTable = {}
+        self.userLoggedIn = False
+        self.namedSystems = {}
+        self.login = sysData['login']
         binPath = self.fileSystem.path['bin']['content']
         for item in sysData['executables']:
             fileName = commands.comTable[item]

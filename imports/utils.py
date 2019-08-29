@@ -1,9 +1,10 @@
-__version__ = '1.1.3'
+__version__ = '1.1.4'
 
 import random
 import time
 from colorama import Fore
 from imports import system
+import re
 
 def randIP():
     octets = []
@@ -128,3 +129,6 @@ def serverBootSequence(sys, terminal):
     terminal.out("System OK Proceed to terminal", Fore.WHITE)
     time.sleep(0.5)
     return 0
+
+IPRegexRaw = '([0-9]{1,3}\.){3}[0-9]{1,3}'
+IPRegex = re.compile(IPRegexRaw)

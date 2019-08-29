@@ -12,3 +12,4 @@ AliasCommand
 MoveCommand
 FileMakeCommand
 FolderMakeCommand
+SecureShellCommand

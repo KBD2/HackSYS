@@ -1,4 +1,4 @@
-__version__ = '1.11.5'
+__version__ = '1.12.0'
 
 from imports import (system, utils)
 from colorama import Fore
@@ -161,7 +161,7 @@ class CommandController:
                     terminal.error("Incorrect number of parameters!")
                     return -1
                 else:
-                    ret = command.run(sysCont, sys, terminal, *params, **switches)
+                    ret = command.run(sysCont, sys, terminal, self, *params, **switches)
                     if ret == 99:
                         return ret
                     else:
@@ -205,7 +205,7 @@ tailed description.",
             'switches': None
             }
 
-    def run(self, sysCont, sys, terminal, *args, **kwargs):
+    def run(self, sysCont, sys, terminal, comCont, *args, **kwargs):
         out = []
         binPath = system.FilePath('/bin', sys.fileSystem)
         if binPath.status < 0:
@@ -263,7 +263,7 @@ ng directory. Use the '-r' switch to recursively list all directories.",
             'switches': ['-r']
             }
 
-    def run(self, sysCont, sys, terminal, *args, **kwargs):
+    def run(self, sysCont, sys, terminal, comCont, *args, **kwargs):
         tempWorkDirContents = sys.fileSystem.workDirContents.copy()
         if kwargs['-r']:
             out = self.outDir(tempWorkDirContents, 0, terminal, sysCont, [])
@@ -303,7 +303,7 @@ d absolute or relative path.",
             'switches': None
             }
 
-    def run(self, sysCont, sys, terminal, *args, **kwargs):
+    def run(self, sysCont, sys, terminal, comCont, *args, **kwargs):
         path = system.FilePath(args[0], sys.fileSystem)
         if path.status == -1:
             terminal.error("{} is not a valid path!".format(args[0]))
@@ -325,7 +325,7 @@ th. Use '-p' to pretty print.",
             'switches': ['-p']
             }
 
-    def run(self, sysCont, sys, terminal, *args, **kwargs):
+    def run(self, sysCont, sys, terminal, comCont, *args, **kwargs):
         path = system.FilePath(args[0], sys.fileSystem, True)
         name = args[0].split('/')[-1]
         pathNoFile = system.FilePath(args[0][:-len(name)], sys.fileSystem)
@@ -370,7 +370,7 @@ class ScanCommand:
             'switches': None
             }
 
-    def run(self, sysCont, sys, terminal, *args, **kwargs):
+    def run(self, sysCont, sys, terminal, comCont, *args, **kwargs):
         out = []
         connected = sysCont.getConnectedIPs(sys.IP)
         out.append("IP\t\tPort\tName\n")
@@ -404,7 +404,7 @@ class ExitCommand:
             'switches': None
             }
 
-    def run(self, sysCont, sys, terminal, *args, **kwargs):
+    def run(self, sysCont, sys, terminal, comCont, *args, **kwargs):
         return 99
 
 class AliasCommand:
@@ -418,7 +418,7 @@ e alias will be added to the command. Use the '-r' switch to delete an alias.",
             'switches': ['-r']
             }
 
-    def run(self, sysCont, sys, terminal, *args, **kwargs):
+    def run(self, sysCont, sys, terminal, comCont, *args, **kwargs):
         if kwargs['-r']:
             if args[0] in sys.aliasTable:
                 del sys.aliasTable[args[0]]
@@ -453,7 +453,7 @@ n\nmagenta\nred\nwhite\nyellow\nUse '-nn' to stop a newline being added.",
             'yellow': Fore.YELLOW
             }
 
-    def run(self, sysCont, sys, terminal, *args, **kwargs):
+    def run(self, sysCont, sys, terminal, comCont, *args, **kwargs):
         if kwargs['-c']:
             if len(args) != 2:
                 terminal.error("Incorrect number of parameters!")
@@ -484,7 +484,7 @@ class RestartCommand:
             'switches': None
             }
 
-    def run(self, sysCont, sys, terminal, *args, **kwargs):
+    def run(self, sysCont, sys, terminal, comCont, *args, **kwargs):
         terminal.out("Restarting...")
         sys.restart(sysCont)
         time.sleep(2)
@@ -501,7 +501,7 @@ he specified path.",
             'switches': None
             }
 
-    def run(self, sysCont, sys, terminal, *args, **kwargs):
+    def run(self, sysCont, sys, terminal, comCont, *args, **kwargs):
         name = args[0].split('/')[-1]
         if name == '*':
             path = system.FilePath(args[0][:-len(name)], sys.fileSystem)
@@ -546,7 +546,7 @@ in the specified path.",
             'switches': None
             }
 
-    def run(self, sysCont, sys, terminal, *args, **kwargs):
+    def run(self, sysCont, sys, terminal, comCont, *args, **kwargs):
         name = args[0].split('/')[-1]
         if name == '*':
             path = system.FilePath(args[0][:-len(name)], sys.fileSystem)
@@ -590,7 +590,7 @@ destructive).",
             'switches': ['-f', '-d']
             }
 
-    def run(self, sysCont, sys, terminal, *args, **kwargs):
+    def run(self, sysCont, sys, terminal, comCont, *args, **kwargs):
         nameGet = args[0].split('/')[-1]
         if kwargs['-d']:
             pathTest = system.FilePath(args[0], sys.fileSystem)
@@ -623,7 +623,7 @@ class FileMakeCommand:
             'switches': None
             }
 
-    def run(self, sysCont, sys, terminal, *args, **kwargs):
+    def run(self, sysCont, sys, terminal, comCont, *args, **kwargs):
         name = args[0].split('/')[-1]
         makePath = system.FilePath(args[0][:-len(name)], sys.fileSystem)
         if makePath.status < 0:
@@ -650,7 +650,7 @@ class FolderMakeCommand:
             'switches': None
             }
 
-    def run(self, sysCont, sys, terminal, *args, **kwargs):
+    def run(self, sysCont, sys, terminal, comCont, *args, **kwargs):
         name = args[0].split('/')[-1]
         makePath = system.FilePath(args[0][:-len(name)], sys.fileSystem)
         if makePath.status < 0:
@@ -669,6 +669,57 @@ class FolderMakeCommand:
             else:
                 sys.addLog(sys.IP, "Created {}".format(args[0]))
             return 0
+
+class SecureShellCommand:
+
+    def __init__(self):
+        self.meta = {
+            'descriptor': "Interacts with connected computers.",
+            'params': [1,3],
+            'switches': ['-n', '-l', '-dc', '-name']
+            }
+
+    def run(self, sysCont, sys, terminal, comCont, *args, **kwargs):
+        if kwargs['-name']:
+            if len(args) != 2:
+                terminal.error("Invalid number of parameters!")
+                return -1
+            sys.namedSystems[args[1]] = args[0]
+            return 0
+        if not kwargs['-n']:
+            if not utils.IPRegex.match(args[0]):
+                terminal.error("Invalid IP!")
+                return -1
+            IP = args[0]
+        else:
+            if args[0] not in sys.namedSystems:
+                terminal.error("Invalid name!")
+                return -1
+            IP = sys.namedSystems[args[0]]
+        name = sysCont.getName(IP)
+        if name not in sysCont.systemDict:
+            time.sleep(5)
+            terminal.out("Connection refused: No further information.")
+            return 0
+        if sysCont.systemDict[name].status != system.Statuses.ONLINE.value:
+            time.sleep(5)
+            terminal.out("Request timed out.")
+            return 0
+        if kwargs['-l']:
+            if len(args) != 3:
+                terminal.error("Invalid number of parameters!")
+                return -1
+            if [args[1], args[2]] == sysCont.systemDict[name].login:
+                sysCont.systemDict[name].userLoggedIn = True
+                terminal.out("Login was successful.")
+                return 0
+            else:
+                terminal.out("Login unsuccessful: Incorrect details.")
+                return 0
+        if not sysCont.systemDict[name].userLoggedIn:
+            terminal.out("Connection refused: Not logged in.")
+            return 0
+        comCont.feed(args[1], sysCont, sysCont.systemDict[name], terminal)
 
 def getExecHash(fileName):
     with open('data/executables/' + fileName, 'r') as file:
@@ -694,7 +745,8 @@ comList = {
     getExecHash('AliasCommand.json'): AliasCommand(),
     getExecHash('MoveCommand.json'): MoveCommand(),
     getExecHash('FileMakeCommand.json'): FileMakeCommand(),
-    getExecHash('FolderMakeCommand.json'): FolderMakeCommand()
+    getExecHash('FolderMakeCommand.json'): FolderMakeCommand(),
+    getExecHash('SecureShellCommand.json'): SecureShellCommand()
     }
 
 #For use when making a system
@@ -712,7 +764,8 @@ comTable = {
     'alias.bin':    'AliasCommand.json',
     'mv.bin':       'MoveCommand.json',
     'touch.bin':    'FileMakeCommand.json',
-    'mkdir.bin':    'FolderMakeCommand.json'
+    'mkdir.bin':    'FolderMakeCommand.json',
+    'ssh.bin':      'SecureShellCommand.json'
     }
 
 comContent = {}

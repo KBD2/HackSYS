@@ -1,4 +1,4 @@
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 
 import json
 import os
@@ -14,7 +14,10 @@ def save(sysCont):
                 sysCont.systemDict[sys].status.name,
                 sysCont.systemDict[sys].aliasTable,
                 sysCont.systemDict[sys].connected,
-                sysCont.systemDict[sys].fileSystem.path
+                sysCont.systemDict[sys].fileSystem.path,
+                sysCont.systemDict[sys].userLoggedIn,
+                sysCont.systemDict[sys].namedSystems,
+                sysCont.systemDict[sys].login
                 ]
         json.dump(saveData, file)
 
@@ -30,7 +33,8 @@ def load(sysCont):
                     saveData[sys][1],
                     {
                         'connected': saveData[sys][4],
-                        'executables': []
+                        'executables': [],
+                        'login': saveData[sys][8]
                     }
                     )
                 sysCont.systemDict[sys].aliasTable = saveData[sys][3]
@@ -38,5 +42,7 @@ def load(sysCont):
                 sysCont.systemDict[sys].fileSystem.path = saveData[sys][5]
                 sysCont.systemDict[sys].fileSystem.workDirContents = sysCont.systemDict[sys].fileSystem.getContents()
                 sysCont.systemLookup[saveData[sys][0]] = sys
+                sysCont.systemDict[sys].userLoggedIn = saveData[sys][6]
+                sysCont.systemDict[sys].namedSystems = saveData[sys][7]
         return True
         
