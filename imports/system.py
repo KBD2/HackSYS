@@ -1,4 +1,4 @@
-__version__ = '2.7.4'
+__version__ = '2.7.5'
 
 '''Module to create a virtual system with an assigned IP, independent
 filesystem, and statuses, must be loaded along with other imports'''
@@ -141,12 +141,12 @@ class System:
         self.fileSystem = FileSystem(copy.deepcopy(SYSTEM_DEFAULT_FILESYSTEM))
         self.OSManu = OSManu
         self.connected = sysData['connected']
-        self.status = Statuses.ONLINE.value
+        self.status = Statuses.ONLINE
         self.aliasTable = {}
         self.userLoggedIn = False
         self.namedSystems = {}
         self.login = sysData['login']
-        binPath = self.fileSystem.path['bin']['content']
+        binPath = self.fileSystem.path[getUID(self.fileSystem.path, 'bin')]['content']
         for item in sysData['executables']:
             fileName = commands.comTable[item]
             fileContent = commands.comContent[fileName]
@@ -205,7 +205,7 @@ class FileSystem:
         '''Gets the contents of an absolute path list'''
         tempWorkDir = self.path # This is the only place self.path should be used
         for direc in direcList:
-            tempWorkDir = tempWorkDir[direc]['content']
+            tempWorkDir = tempWorkDir[getUID(tempWorkDir, direc)]['content']
         if reference:
             return tempWorkDir
         else:
@@ -263,10 +263,10 @@ class FileSystem:
         by deleted files'''
         tempWorkDirContents = self.getContents()
         for count, item in enumerate(self.workingDirectory):
-            if not item in tempWorkDirContents:
+            if not getUID(tempWorkDirContents, item) in tempWorkDirContents:
                 self.workingDirectory = self.workingDirectory[:count]
             else:
-                tempWorkDirContents = tempWorkDirContents[item].copy()
+                tempWorkDirContents = tempWorkDirContents[getUID(tempWorkDirContents, item)].copy()
 
     def output(self, path, fileName):
         '''Outputs the contents of the file in the supplied path'''
@@ -323,12 +323,13 @@ class FileSystem:
         # -2: path exists but is not a dir
         tempWorkDir = self.getContents()
         for count, item in enumerate(pathList):
-            if item not in tempWorkDir:
+            UID = getUID(tempWorkDir, item)
+            if UID not in tempWorkDir:
                 return -1
-            elif tempWorkDir[item]['type'] != FileTypes.DIR.value:
+            elif tempWorkDir[UID]['type'] != FileTypes.DIR.value:
                 return -2
             else:
-                tempWorkDir = tempWorkDir[item]['content']
+                tempWorkDir = tempWorkDir[UID]['content']
         return 0
 
     def handleFileOutput(self, output, terminal, message):
@@ -353,6 +354,12 @@ def getSysContent(fileName):
         fileData = json.loads(file.read())
     return fileData['content']
 
+def getUID(directory, name):
+    for item in directory:
+        if directory[item]['name'] == name:
+            return item
+    return -1
+
 sysFileHashes = {
     'command.sys': getSysHash('command.json'),
     'boot.sys': getSysHash('boot.json')
@@ -364,15 +371,18 @@ sysFileContents = {
     }
 
 SYSTEM_DEFAULT_FILESYSTEM = {
-    'home': {
+    '{0000-0000-0001}': {
+        'name': 'home',
         'type': FileTypes.DIR.value,
         'content': {}
         },
-    'bin': {
+    '{0000-0000-0002}': {
+        'name': 'bin',
         'type': FileTypes.DIR.value,
         'content': {}
         },
-    'sys': {
+    '{0000-0000-0003}': {
+        'name': 'sys',
         'type': FileTypes.DIR.value,
         'content': {
             'command.sys': {
@@ -385,7 +395,8 @@ SYSTEM_DEFAULT_FILESYSTEM = {
                 },
             }
         },
-    'log': {
+    '{0000-0000-0004}': {
+        'name': 'log',
         'type': FileTypes.DIR.value,
         'content': {}
         }

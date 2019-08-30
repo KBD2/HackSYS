@@ -1,4 +1,4 @@
-__version__ = '1.12.0'
+__version__ = '1.12.1'
 
 from imports import (system, utils)
 from colorama import Fore
@@ -273,13 +273,19 @@ ng directory. Use the '-r' switch to recursively list all directories.",
             out.append('Type\tSize\tName\n')
             for item in tempWorkDirContents:
                 if item != 'type':
-                    line = system.FileTypes(tempWorkDirContents[item]['type']).name + '\t'
+                    
                     if tempWorkDirContents[item]['type'] != system.FileTypes.DIR.value:
+                        line = system.FileTypes(tempWorkDirContents[item]['type']).name + '\t'
                         if tempWorkDirContents[item]['content'] is not None:
                             line += str(len(tempWorkDirContents[item]['content']))
                         else:
                             line += '0'
-                    line += '\t' + item
+                        line += '\t' + item
+                    else:
+                        line = system.FileTypes(
+                            tempWorkDirContents[item]['type']
+                            ).name + '\t'
+                        line += '\t' + tempWorkDirContents[item]['name']
                     out.append(line)
             terminal.out('\n'.join(out))
         return 0
@@ -701,7 +707,7 @@ class SecureShellCommand:
             time.sleep(5)
             terminal.out("Connection refused: No further information.")
             return 0
-        if sysCont.systemDict[name].status != system.Statuses.ONLINE.value:
+        if sysCont.systemDict[name].status != system.Statuses.ONLINE:
             time.sleep(5)
             terminal.out("Request timed out.")
             return 0
