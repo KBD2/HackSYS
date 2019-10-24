@@ -11,6 +11,7 @@ except:
 
 sysModule.path.insert(1, './imports')
 import utils, terminal, system, commands, save
+system.init(system)
 colorama.init()
 
 from colorama import Fore

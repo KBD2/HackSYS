@@ -112,21 +112,18 @@ class CommandController:
                 sys.fileSystem,
                 True
                 )
-            if partCommandFileName in sys.fileSystem.workDirContents:
+            if partCommandFileName in sys.fileSystem.workDirContents.files:
                 execDir = sys.fileSystem.workDirContents.copy()
             elif binPath.status < 0:
                 terminal.error("Cannot find {} executable file!".format(partCommand))
                 return -1
             else:
-                execDir = sys.fileSystem.getContents(['bin'])
-            execHash = hashlib.md5(
-                bytes(execDir[partCommandFileName]['content'], 'ascii')
-                ).hexdigest()
-            if execHash not in comList:
-                terminal.error(partCommandFilename + " is not a valid executable file!")
+                file = sys.fileSystem.getDirectory(['bin']).files[partCommandFileName]
+            if file.getHash() not in comList:
+                terminal.error(partCommandFileName + " is not a valid executable file!")
                 return -1
             else:
-                command = comList[execHash]
+                command = comList[file.getHash()]
                 comSwitches = command.meta['switches']
                 params = []
                 switches = {}

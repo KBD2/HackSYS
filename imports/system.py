@@ -24,7 +24,8 @@ class File:
     typeRegex = re.compile('\.[a-zA-Z]+$')
     
     def __init__(self, name, content=None):
-        self._type = self.findType(name)
+        self._name = name
+        self._type = self.findType(self._name)
         self._content = content
         if self._content is not None:
             self._hash = hashlib.md5(bytes(self._content, 'ascii')).hexdigest()
@@ -49,11 +50,11 @@ class File:
         else:
             self._type = ''
 
-    def update(self, content):
-        self.__init__(content)
+    def update(self, name, content):
+        self.__init__(name, content)
 
     def __deepcopy__(self, ctx):
-        newFile = File(self._content)
+        newFile = File(self._name, self._content)
         return newFile
 
 class Directory:
@@ -193,7 +194,7 @@ class System:
         for item in sysData['executables']:
             fileName = commands.comTable[item]
             fileContent = commands.comContent[fileName]
-            binPath.files[item] = File(fileContent)
+            binPath.files[item] = File(fileName, fileContent)
 
     def exit(self):
         self.fileSystem.exit()
@@ -352,29 +353,25 @@ class FileSystem:
 
 def getSysHash(fileName):
     path = 'data/system/'
-    if 'data' not in os.listdir():
-        path = '../' + path
     with open(path + fileName, 'r') as file:
         fileData = json.loads(file.read())
     return fileData['hash']
 
 def getSysContent(fileName):
     path = 'data/system/'
-    if 'data' not in os.listdir():
-        path = '../' + path
     with open(path + fileName, 'r') as file:
         fileData = json.loads(file.read())
     return fileData['content']
 
-sysFileHashes = {
-    'command.sys': getSysHash('command.json'),
-    'boot.sys': getSysHash('boot.json')
-    }
+def init(self):
+    self.sysFileHashes = {
+        'command.sys': getSysHash('command.json'),
+        'boot.sys': getSysHash('boot.json')
+        }
 
-sysFileContents = {
-    'command.sys': getSysContent('command.json'),
-    'boot.sys': getSysContent('boot.json')
-    }
-
-with open('imports/DEFAULTSYSTEM.pkl', 'rb') as file:
-    SYSTEM_DEFAULT_FILESYSTEM = pickle.load(file)
+    self.sysFileContents = {
+        'command.sys': getSysContent('command.json'),
+        'boot.sys': getSysContent('boot.json')
+        }
+    with open('imports/DEFAULTSYSTEM.pkl', 'rb') as file:
+        self.SYSTEM_DEFAULT_FILESYSTEM = pickle.load(file)

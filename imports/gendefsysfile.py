@@ -2,6 +2,7 @@
 Generates a pickled file containing the
 default system directories.
 """
+
 from system import (Directory, File)
 import pickle
 import json
