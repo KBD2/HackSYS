@@ -3,7 +3,7 @@ __version__ = '1.1.2'
 import sys
 import time
 from colorama import Fore
-from imports import commands
+import commands
 class Terminal:
 
     def __init__(self, comCont):

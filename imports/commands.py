@@ -1,12 +1,13 @@
 __version__ = '1.12.1'
 
-from imports import (system, utils)
+import system, utils
 from colorama import Fore
 import hashlib
 import random
 import json
 import time
 from enum import Enum
+import os
 
 class OutTypes(Enum):
     TERMINAL = 0
@@ -728,12 +729,18 @@ class SecureShellCommand:
         comCont.feed(args[1], sysCont, sysCont.systemDict[name], terminal)
 
 def getExecHash(fileName):
-    with open('data/executables/' + fileName, 'r') as file:
+    path = 'data/executables/'
+    if 'data' not in os.listdir():
+        path = '../' + path
+    with open(path + fileName, 'r') as file:
         fileData = json.loads(file.read())
     return fileData['hash']
 
 def getExecContent(fileName):
-    with open('data/executables/' + fileName) as file:
+    path = 'data/executables/'
+    if 'data' not in os.listdir():
+        path = '../' + path
+    with open(path + fileName) as file:
         fileData = json.loads(file.read())
     return fileData['content']
 

@@ -9,12 +9,15 @@ except:
     print("You need the colorama module! (python -m pip install colorama)")
     sysModule.exit()
 
-from imports import (utils, terminal, system, commands, save)
+sysModule.path.insert(1, './imports')
+import utils, terminal, system, commands, save
 colorama.init()
 
 from colorama import Fore
 
-sysCont = system.SystemsController()
+sysCont = save.load()
+if not sysCont:
+    sysCont = system.SystemsController()
 #If user broke their system then quit
 bootPath = system.FilePath(
     'sys/boot.sys',
