@@ -27,6 +27,7 @@ class CommandController:
         command = self.handleSpaces(command)
         commands = command.split('¶')
         for command in commands:
+            #TODO: Sack up and fix this mess
             if '|' in command:
                 outputType = command.count('|')
                 outputFile = command[len(command) - command[-1::-1].find('|'):]
@@ -46,9 +47,6 @@ class CommandController:
                     outputFileName = outputPath.iterList[-1]
                     outputDirectory = sys.fileSystem.getContents(outputPath.iterList[:-1], True)
                     if outputFileName not in outputDirectory:
-                        fileType = sys.fileSystem.getFileType(outputFileName)
-                        if fileType == system.FileTypes.DIR.value:
-                            fileType = system.FileTypes.MSC.value
                         sys.fileSystem.make(
                             system.FilePath(
                                 outputFile[:-len(outputFileName)],
@@ -60,7 +58,7 @@ class CommandController:
                         sys.addLog(sys.IP, "Created " + '/' + '/'.join(
                             outputPath.iterList
                             ))
-                        sys.fileSystem.workDirContents = sys.fileSystem.getContents(sys.fileSystem.workingDirectory)
+                        sys.fileSystem.workDir = sys.fileSystem.getDirectory(sys.fileSystem.workingDirectory)
                     if outputType == 1:
                         self.outType = [OutTypes.FILEOVERWRITE, sys.fileSystem, outputPath, sys]
                     elif outputType == 2:
@@ -85,7 +83,7 @@ class CommandController:
                         terminal
                         )
                 except RecursionError:
-                    terminal.out("Too much recursion!")
+                    terminal.error("Too much recursion!")
                     return -1
             partCommandFileName = partCommand + '.bin'
             userFileSystem = sysCont.userSystem.fileSystem.path
@@ -93,7 +91,7 @@ class CommandController:
                 '/sys/command.sys',
                 sysCont.userSystem.fileSystem,
                 True,
-                system.getSysHash('command.json')
+                system.sysFileHashes['command.sys']
                 )
             sysPath = system.FilePath(
                 '/sys/command.sys',
@@ -101,20 +99,20 @@ class CommandController:
                 True,
                 system.sysFileHashes['command.sys']
                 )
-            if sysPath.status in [-1,-2,-3,-4]:
-                terminal.error("SYSTEM ERROR: CANNOT FIND COMMAND EXECUTABLE")
-                return -1
-            elif sysPath.status == -5:
+            if sysPath.status == system.PathStatuses.INVALID_HASH:
                 terminal.error("SYSTEM ERROR: INVALID COMMAND EXECUTABLE")
+                return -1
+            elif sysPath.status != system.PathStatuses.PATH_VALID:
+                terminal.error("SYSTEM ERROR: CANNOT FIND COMMAND EXECUTABLE")
                 return -1
             binPath = system.FilePath(
                 '/bin/' + partCommandFileName,
                 sys.fileSystem,
                 True
                 )
-            if partCommandFileName in sys.fileSystem.workDirContents.files:
+            if partCommandFileName in sys.fileSystem.workDir.files:
                 execDir = sys.fileSystem.workDirContents.copy()
-            elif binPath.status < 0:
+            elif binPath.status != system.PathStatuses.PATH_VALID:
                 terminal.error("Cannot find {} executable file!".format(partCommand))
                 return -1
             else:
@@ -262,39 +260,32 @@ ng directory. Use the '-r' switch to recursively list all directories.",
             }
 
     def run(self, sysCont, sys, terminal, comCont, *args, **kwargs):
-        tempWorkDirContents = sys.fileSystem.workDirContents.copy()
         if kwargs['-r']:
-            out = self.outDir(tempWorkDirContents, 0, terminal, sysCont, [])
+            out = self.outDir(sys.fileSystem.workDir, 0, terminal, sysCont, [])
             terminal.out('\n'.join(out))
         else:
             out = []
             out.append('Type\tSize\tName\n')
-            for item in tempWorkDirContents:
-                if item != 'type':
-                    
-                    if tempWorkDirContents[item]['type'] != system.FileTypes.DIR.value:
-                        line = system.FileTypes(tempWorkDirContents[item]['type']).name + '\t'
-                        if tempWorkDirContents[item]['content'] is not None:
-                            line += str(len(tempWorkDirContents[item]['content']))
-                        else:
-                            line += '0'
-                        line += '\t' + item
-                    else:
-                        line = system.FileTypes(
-                            tempWorkDirContents[item]['type']
-                            ).name + '\t'
-                        line += '\t' + tempWorkDirContents[item]['name']
-                    out.append(line)
+            for name in sys.fileSystem.workDir.subdirectories:
+                line = 'DIR' + '\t\t' + name
+                out.append(line)
+            for name, item in sys.fileSystem.workDir.files.items():
+                line = item.getType() + '\t'
+                if tempWorkDirContents[item]['content'] is not None:
+                    line += str(len(tempWorkDirContents[item]['content']))
+                else:
+                    line += '0'
+                line += '\t' + name
+                out.append(line)
             terminal.out('\n'.join(out))
         return 0
 
     def outDir(self, conts, tabs, terminal, sysCont, out):
-        for item in conts:
-            if conts[item]['type'] == system.FileTypes.DIR.value:
-                out.append('  ' * tabs + item)
-                out = self.outDir(conts[item]['content'], tabs + 1, terminal, sysCont, out)
-            else:
-                out.append('  ' * tabs + item)
+        for item in conts.subdirectories:
+            out.append('  ' * tabs + item)
+            out = self.outDir(conts.subdirectories[item], tabs + 1, terminal, sysCont, out)
+        for item in conts.files:
+            out.append('  ' * tabs + item)
         return out
 
 class ChangeDirCommand:

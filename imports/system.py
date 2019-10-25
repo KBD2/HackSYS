@@ -19,6 +19,14 @@ class Statuses(Enum):
     OFFLINE = 1
     UNBOOTABLE = 2
 
+class PathStatuses(Enum):
+    PATH_VALID = 0
+    PATH_NOT_EXIST = 1
+    PATH_NOT_DIR = 2
+    FILE_NOT_EXIST = 3
+    INVALID_HASH = 4
+    PATH_EMPTY = 5
+
 class File:
 
     typeRegex = re.compile('\.[a-zA-Z]+$')
@@ -94,18 +102,16 @@ class SystemsController:
             IP = utils.randIP()
             self.systemDict[sys] = System(
                 IP,
-                utils.randOSCompany(),
                 defaultSystems[sys]
                 )
             self.systemLookup[IP] = sys
         return 0
 
-    def getConnectedIPs(self, IP):
-        systemName = self.getName(IP)
-        connectedIPs = []
+    def getConnected(self, name):
+        connected = []
         for name in self.systemDict[systemName].connected:
-            connectedIPs.append(self.systemDict[name].IP)
-        return connectedIPs
+            connected.append(self.systemDict[name])
+        return connected
 
     def getName(self, IP):
         if IP not in self.systemLookup:
@@ -119,12 +125,6 @@ class FilePath:
     validation'''
     
     def __init__(self, path, fileSystem, isFile=False, fileHash=None):
-        #  0: path is valid
-        # -1: path does not exist
-        # -2: path exists but is not a directory
-        # -3: file doesn't exist
-        # -5: file exists, but hash doesn't match
-        # -6: empty path
         self.iterList = []
         if len(path) > 0 and path[0] == '/':
             path = path[1:]
@@ -144,30 +144,38 @@ class FilePath:
         self.length = len(self.iterList)
         if isFile:
             if self.length == 0:
-                self.status = -6
+                self.status = PathStatuses.PATH_EMPTY
                 return
             fileName = self.iterList[-1]
             filePath = self.iterList[:-1]
-            self.status = fileSystem.checkIsValidPath(filePath)
-            if self.status == 0:
+            status = fileSystem.checkIsValidPath(filePath)
+            if status == 0:
                 directory = fileSystem.getDirectory(filePath)
                 if fileName not in directory.files:
-                    self.status = -3
+                    self.status = PathStatuses.FILE_NOT_EXIST
                     return
                 else:
                     file = directory.files[fileName]
                     if fileHash is not None:
                         if file.getHash() == fileHash:
+                            self.status = PathStatuses.PATH_VALID
                             return
                         else:
-                            self.status = -5
+                            self.status = PathStatuses.INVALID_HASH
                             return
                     else:
+                        self.status = PathStatuses.PATH_VALID
+                        self.directory = directory
                         return
             else:
+                self.status = PathStatuses.PATH_NOT_EXIST
                 return
         else:
-            self.status = fileSystem.checkIsValidPath(self.iterList)
+            if fileSystem.checkIsValidPath(self.iterList):
+                self.status = PathStatuses.PATH_VALID
+                self.directory = fileSystem.getDirectory(self.iterList)
+            else:
+                self.status = PathStatuses.PATH_NOT_EXIST
             return
 
     def __iter__(self):
@@ -180,10 +188,10 @@ class System:
 
     '''A virtual system'''
 
-    def __init__(self, IP, OSManu, sysData):
+    def __init__(self, IP, sysData):
         self.IP = IP
         self.fileSystem = FileSystem(copy.deepcopy(SYSTEM_DEFAULT_FILESYSTEM))
-        self.OSManu = OSManu
+        self.OSManu = utils.randOSCompany()
         self.connected = sysData['connected']
         self.status = Statuses.ONLINE
         self.aliasTable = {}
@@ -207,7 +215,7 @@ class System:
             True,
             sysFileHashes['boot.sys']
             )
-        if bootFilePath.status < 0:
+        if bootFilePath.status != PathStatuses.PATH_VALID:
             self.status = Statuses.UNBOOTABLE
             return -1
         else:
@@ -216,11 +224,12 @@ class System:
 
     def addLog(self, IP, log):
         logPath = FilePath('/log', self.fileSystem)
-        if logPath.status < 0:
-            self.fileSystem.path['log'] = Directory()
-        logContent = self.fileSystem.getDirectory(['log'], True)
+        if logPath.status != PathStatuses.PATH_VALID:
+            self.fileSystem.path.subdirectories['log'] = Directory()
+        logDirectory = self.fileSystem.getDirectory(['log'], True)
         concatenated = '{}@{}-{}'.format(IP, time.strftime('%H:%M:%S'), log)
-        logContent[concatenated + '.log'] = File(concatenated)
+        fileName = concatenated + '.log'
+        logDirectory.subdirectories[fileName] = File(fileName, concatenated)
         self.fileSystem.workDirContents = self.fileSystem.getDirectory(
             self.fileSystem.workingDirectory
             )
@@ -231,14 +240,14 @@ class FileSystem:
     '''Holds a filesystem, and can view and manipulate it
     with an inbuilt working directory'''
 
-    def __init__(self, contents={}):
+    def __init__(self, contents):
         self.path = contents
         self.workingDirectory = []
-        self.workDirContents = self.getDirectory()
+        self.workDir = self.getDirectory()
 
     def getDirectory(self, direcList=[]):
         '''Gets the contents of an absolute path list'''
-        tempWorkDir = self.path # This is the only place self.path should be used
+        tempWorkDir = self.path
         for direc in direcList:
             tempWorkDir = tempWorkDir.subdirectories[direc]
         return tempWorkDir
@@ -250,38 +259,27 @@ class FileSystem:
 
     def changeDir(self, path):
         '''Changes the directory to the supplied path'''
-        #        0: Successful
-        # -1 to -2: From checkIsValidPath
-        assert type(path) is FilePath
         self.workingDirectory = path.iterList.copy()
-        self.workDirContents = self.getDirectory(self.workingDirectory)
+        self.workDir = path.directory
         return 0
 
     def make(self, path, fileName, content=None):
         '''Makes an item of the specified type'''
-        #   0: Successful
-        #  -1: Path already exists
-        assert type(path) is FilePath
-        tempWorkDir = self.getDirectory(path.iterList)
-        if fileName in tempWorkDir.files:
+        if fileName in path.directory.files:
             return -1
         else:
-            tempWorkDir.files[fileName] = File(content)
-            self.workDirContents = self.getDirectory(self.workingDirectory)
+            path.directory.files[fileName] = File(fileName, content)
+            self.workDir = self.getDirectory(self.workingDirectory)
             return 0
 
     def remove(self, path, name):
         '''Removes the item at the given path'''
-        #  0: Successful
-        # -1: Path doesn't exist
-        assert type(path) is FilePath
-        tempWorkDir = self.getDirectory(path.iterList, True)
-        if name not in tempWorkDir.files:
+        if name not in path.directory.files:
             return -1
         else:
-            del tempWorkDir.files[name]
+            del path.directory.files[name]
             self.correctWorkingDirectory()
-            self.workDirContents = self.getDirectory(self.workingDirectory)
+            self.workDir = self.getDirectory(self.workingDirectory)
             return 0
 
     def correctWorkingDirectory(self):
@@ -296,41 +294,31 @@ class FileSystem:
 
     def output(self, path, fileName):
         '''Outputs the contents of the file in the supplied path'''
-        # str: Successful
-        #  -1: Path doesn't exist
-        #  -2: Path is a directory
-        assert type(path) is FilePath
         tempWorkDir = self.getDirectory(path.iterList)
-        return tempWorkDir.files[fileName].getContent
+        return tempWorkDir.files[fileName].getContent()
 
     def exit(self):
         '''Soft inits the system, call this when disconnecting'''
         self.workingDirectory = []
-        self.workDirContents = self.getDirectory()
+        self.workDir = self.getDirectory()
 
     def move(self, pathGet, nameGet, pathSet, nameSet, isDir=False):
         '''Moves the file at path 1 to the file at path 2'''
-        #  0: Successful
-        # -1: Path doesn't exist
-        # -2: Path is a directory
-        getDir = self.getDirectory(pathGet.iterList)
-        setDir = self.getDirectory(pathSet.iterList)
         if isDir:
-            setDirContents.subdirectories[nameSet] = getDirContents.subdirectories[nameGet]
-            del getDirContents.subdirectories[nameGet]
+            directory = pathGet.directory.subdirectories[nameGet]
+            pathSet.directory.subdirectories[nameSet] = directory
+            del pathGet.directory.subdirectories[nameGet]
         else:
-            setDirContents.files[nameSet] = getDirContents.files[nameGet]
+            file = pathGet.directory.files[nameGet]
+            pathSet.directory.files[nameSet] = file
             del getDirContents.files[nameGet]
-            setDirContents.files[nameSet].update(nameSet, setDirContents.files[nameSet].getContent)
+            file.update(nameSet, file.getContent)
         self.correctWorkingDirectory()
-        self.workDirContents = self.getDirectory(self.workingDirectory)
+        self.workDir = self.getDirectory(self.workingDirectory)
         return 0
 
     def checkIsValidPath(self, pathList):
         '''Checks the path provided exists'''
-        #  0: path is valid
-        # -1: path does not exist
-        # -2: path exists but is not a dir
         tempWorkDir = self.getDirectory()
         for count, item in enumerate(pathList):
             if item not in tempWorkDir.subdirectories:
@@ -339,7 +327,7 @@ class FileSystem:
                 tempWorkDir = tempWorkDir.subdirectories[item]
         return 0
 
-    def handleFileOutput(self, output, terminal, message):
+    def handleFileOutput(self, output, message):
         outputDir = self.getDirectory(output[2].iterList[:-1], True)
         name = output[2].iterList[-1]
         if output[0] == commands.OutTypes.FILEOVERWRITE:
@@ -352,14 +340,12 @@ class FileSystem:
         return 0
 
 def getSysHash(fileName):
-    path = 'data/system/'
-    with open(path + fileName, 'r') as file:
+    with open('data/system/' + fileName, 'r') as file:
         fileData = json.loads(file.read())
     return fileData['hash']
 
 def getSysContent(fileName):
-    path = 'data/system/'
-    with open(path + fileName, 'r') as file:
+    with open('data/system/' + fileName, 'r') as file:
         fileData = json.loads(file.read())
     return fileData['content']
 
