@@ -9,12 +9,16 @@ except:
     print("You need the colorama module! (python -m pip install colorama)")
     sysModule.exit()
 
-from imports import (utils, terminal, system, commands, save)
+sysModule.path.insert(1, './imports')
+import utils, terminal, system, commands, save
+system.init(system)
 colorama.init()
 
 from colorama import Fore
 
-sysCont = system.SystemsController()
+sysCont = save.load()
+if not sysCont:
+    sysCont = system.SystemsController()
 #If user broke their system then quit
 bootPath = system.FilePath(
     'sys/boot.sys',
@@ -22,7 +26,7 @@ bootPath = system.FilePath(
     True,
     system.sysFileHashes['boot.sys']
     )
-if bootPath.status < 0:
+if bootPath.status != system.PathStatuses.PATH_VALID:
     sysCont.userSystem.status = system.Statuses.UNBOOTABLE
 comCont = commands.CommandController()
 
@@ -47,7 +51,7 @@ else:
 while True:
     if sysCont.userSystem.status == system.Statuses.UNBOOTABLE:
         terminal.error("ERROR: SYSTEM UNBOOTABLE")
-        time.sleep(60*60*24)
+        while True: continue
     userInput = terminal.get(sysCont.userSystem.IP + sysCont.userSystem.fileSystem.getPath())
     ret = comCont.feed(userInput, sysCont, sysCont.userSystem, terminal)
     comCont.outType = [commands.OutTypes.TERMINAL]
@@ -57,4 +61,3 @@ while True:
     else:
         save.save(sysCont)
         continue
- 

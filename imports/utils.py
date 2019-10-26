@@ -3,7 +3,7 @@ __version__ = '1.1.4'
 import random
 import time
 from colorama import Fore
-from imports import system
+import system
 import re
 
 def randIP():
