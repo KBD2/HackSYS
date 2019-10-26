@@ -1,4 +1,4 @@
-__version__ = '2.7.5'
+__version__ = '3.0.0'
 
 '''Module to create a virtual system with an assigned IP, independent
 filesystem, and statuses, must be loaded along with other imports'''

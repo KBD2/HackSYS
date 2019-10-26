@@ -1,4 +1,4 @@
-__version__ = 'ALPHA 2.3.0'
+__version__ = 'ALPHA 2.4.0'
 
 import sys as sysModule
 import time
