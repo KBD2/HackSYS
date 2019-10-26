@@ -37,16 +37,16 @@ class CommandController:
                     "'"
                     ])
                 outputPath = system.FilePath(outputFile, sys.fileSystem, True)
-                if outputPath.status not in [0, -3]:
-                    terminal.error("Invalid output path!")
+                if outputPath.status == system.PathStatuses.FILE_NOT_EXIST and outputType == 2:
+                    terminal.error("File does not exist!")
                     return -1
-                elif outputType == 2 and outputPath.status == -3:
-                    terminal.error("{} doesn't exist!".format(outputFile))
+                elif outputPath.status != system.PathStatuses.PATH_VALID:
+                    terminal.error("Invalid output path!")
                     return -1
                 else:
                     outputFileName = outputPath.iterList[-1]
-                    outputDirectory = sys.fileSystem.getContents(outputPath.iterList[:-1], True)
-                    if outputFileName not in outputDirectory:
+                    outputDirectory = sys.fileSystem.getDirectory(outputPath.iterList[:-1])
+                    if outputFileName not in outputDirectory.files:
                         sys.fileSystem.make(
                             system.FilePath(
                                 outputFile[:-len(outputFileName)],
@@ -111,7 +111,8 @@ class CommandController:
                 True
                 )
             if partCommandFileName in sys.fileSystem.workDir.files:
-                execDir = sys.fileSystem.workDirContents.copy()
+                execDir = sys.fileSystem.workDir
+                file = execDir.files[partCommandFileName]
             elif binPath.status != system.PathStatuses.PATH_VALID:
                 terminal.error("Cannot find {} executable file!".format(partCommand))
                 return -1
@@ -204,19 +205,17 @@ tailed description.",
     def run(self, sysCont, sys, terminal, comCont, *args, **kwargs):
         out = []
         binPath = system.FilePath('/bin', sys.fileSystem)
-        if binPath.status < 0:
+        if binPath.status != system.PathStatuses.PATH_VALID:
             terminal.error("Cannot find executables directory!")
             return -1
         else:
             foundExecs = {}
-            binContents = sys.fileSystem.getContents(['bin'])
-            for item in binContents:
-                if binContents[item]['type'] == system.FileTypes.BIN.value:
-                    execHash = hashlib.md5(
-                        bytes(binContents[item]['content'], 'ascii')
-                        ).hexdigest()
-                    if execHash in comList:
-                        foundExecs[item[:-4]] = comList[execHash]
+            binDir = sys.fileSystem.getDirectory(['bin'])
+            for item in binDir.files:
+                file = binDir.files[item]
+                if file.getType() == 'BIN':
+                    if file.getHash() in comList:
+                        foundExecs[item[:-4]] = comList[file.getHash()]
         if len(args) == 0:
             out.append("help <command> for a more detailed description.")
             out.append("Commands:\n")
@@ -271,8 +270,8 @@ ng directory. Use the '-r' switch to recursively list all directories.",
                 out.append(line)
             for name, item in sys.fileSystem.workDir.files.items():
                 line = item.getType() + '\t'
-                if tempWorkDirContents[item]['content'] is not None:
-                    line += str(len(tempWorkDirContents[item]['content']))
+                if item.getContent() is not None:
+                    line += str(len(item.getContent()))
                 else:
                     line += '0'
                 line += '\t' + name
@@ -300,10 +299,10 @@ d absolute or relative path.",
 
     def run(self, sysCont, sys, terminal, comCont, *args, **kwargs):
         path = system.FilePath(args[0], sys.fileSystem)
-        if path.status == -1:
+        if path.status == system.PathStatuses.PATH_NOT_EXIST:
             terminal.error("{} is not a valid path!".format(args[0]))
             return -1
-        elif path.status == -2:
+        elif path.status == system.PathStatuses.PATH_NOT_DIR:
             terminal.error("{} is valid but is not a directory!".format(args[0]))
             return -1
         else:
@@ -324,7 +323,7 @@ th. Use '-p' to pretty print.",
         path = system.FilePath(args[0], sys.fileSystem, True)
         name = args[0].split('/')[-1]
         pathNoFile = system.FilePath(args[0][:-len(name)], sys.fileSystem)
-        if path.status < 0:
+        if path.status != system.PathStatuses.PATH_VALID:
             terminal.error("{} is not a valid path!".format(args[0]))
             return -1
         else:
@@ -367,7 +366,7 @@ class ScanCommand:
 
     def run(self, sysCont, sys, terminal, comCont, *args, **kwargs):
         out = []
-        connected = sysCont.getConnectedIPs(sys.IP)
+        connected = sysCont.getConnected(sys.name)
         out.append("IP\t\tPort\tName\n")
         for item in connected:
             for i in range(random.randint(0,3)):
@@ -376,11 +375,11 @@ class ScanCommand:
                              + str(random.randint(0,99999))
                              + '\t'
                              + utils.randSystemName())
-            out.append(item
+            out.append(item.IP
                          + '\t'
                          + str(random.randint(0,99999))
                          + '\t'
-                         +  sysCont.getName(item))
+                         +  sysCont.getName(item.IP))
             for i in range(random.randint(0,3)):
                 out.append(utils.randIP()
                              + '\t'
@@ -507,27 +506,28 @@ he specified path.",
             return -1
         else:
             if name == '*':
-                contents = sys.fileSystem.getContents(path, True)
-                items = list(contents.keys())
-                for item in items:
+                directory = sys.fileSystem.getDirectory(path, True)
+                items = directory.items()
+                for key, item in items:
                     ret = sys.fileSystem.remove(
                         path,
-                        item,
+                        key,
                         blacklist=[system.FileTypes.DIR.value]
                         )
                     if ret == 0:
-                        terminal.out("Removed " + item)
-                        if sys.fileSystem.getFileType(item) != system.FileTypes.LOG.value:
+                        terminal.out("Removed " + item._name)
+                        if item.getType() != 'LOG':
                             sys.addLog(sys.IP, "Removed " + item)
                 return 0
             else:
                 path = system.FilePath(args[0][:-len(name)], sys.fileSystem)
+                file = path.directory[name]
                 sys.fileSystem.remove(
                     path,
                     name,
                     blacklist=[system.FileTypes.DIR.value]
                     )
-                if sys.fileSystem.getFileType(name) != system.FileTypes.LOG.value:
+                if file.getType() != 'LOG':
                     sys.addLog(sys.IP, "Removed " + name)
                 return 0
 
@@ -552,25 +552,17 @@ in the specified path.",
             return -1
         else:
             if name == '*':
-                contents = sys.fileSystem.getContents(path, True)
-                items = list(contents.keys())
+                directory = sys.fileSystem.getDirectory(path)
+                items = list(directory.keys())
                 for item in items:
-                    ret = sys.fileSystem.remove(
-                        path,
-                        item,
-                        whitelist=[system.FileTypes.DIR.value]
-                        )
+                    ret = sys.fileSystem.remove(path, item, True)
                     if ret == 0:
                         terminal.out("Removed " + item)
                         sys.addLog(sys.IP, "Removed " + item)
                 return 0
             else:
                 path = system.FilePath(args[0][:-len(name)], sys.fileSystem)
-                sys.fileSystem.remove(
-                    path,
-                    name,
-                    whitelist=[system.FileTypes.DIR.value]
-                    )
+                sys.fileSystem.remove(path, name, True)
                 sys.addLog(sys.IP, "Removed " + name)
                 return 0
 
@@ -598,8 +590,12 @@ destructive).",
         nameSet = args[1].split('/')[-1]
         pathSet = system.FilePath(args[1][:-len(nameSet)], sys.fileSystem)
         if not kwargs['-f']:
-            pathSetConts = sys.fileSystem.getContents(pathSet.iterList)
-            if nameSet in pathSetConts:
+            pathSetDir = sys.fileSystem.getDirectory(pathSet.iterList)
+            if kwargs['-d']:
+                setConts = pathSetDir.subdirectories
+            else:
+                setConts = pathSetDir.files
+            if nameSet in setConts:
                 terminal.error("{} already exists!".format(nameSet))
                 return -1
         if pathSet.status < 0:
@@ -621,14 +617,11 @@ class FileMakeCommand:
     def run(self, sysCont, sys, terminal, comCont, *args, **kwargs):
         name = args[0].split('/')[-1]
         makePath = system.FilePath(args[0][:-len(name)], sys.fileSystem)
-        if makePath.status < 0:
+        if makePath.status != system.PathStatuses.PATH_VALID:
             terminal.error("{} is not a valid path!".format(args[0]))
             return -1
         else:
-            typ = sys.fileSystem.getFileType(name)
-            if typ == system.FileTypes.DIR.value:
-                typ = system.FileTypes.MSC.value
-            ret = sys.fileSystem.make(makePath, name, typ)
+            ret = sys.fileSystem.make(makePath, name)
             if ret == -1:
                 terminal.error("{} already exists!".format(args[0]))
                 return -1
@@ -648,15 +641,13 @@ class FolderMakeCommand:
     def run(self, sysCont, sys, terminal, comCont, *args, **kwargs):
         name = args[0].split('/')[-1]
         makePath = system.FilePath(args[0][:-len(name)], sys.fileSystem)
-        if makePath.status < 0:
+        if makePath.status != system.PathStatuses.PATH_VALID:
             terminal.error("{} is not a valid path!".format(args[0]))
             return -1
         else:
-            ret = sys.fileSystem.make(
+            ret = sys.fileSystem.makeDirectory(
                 makePath,
-                name,
-                system.FileTypes.DIR.value,
-                {}
+                name
                 )
             if ret == -1:
                 terminal.error("{} already exists!".format(args[0]))

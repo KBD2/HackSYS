@@ -29,11 +29,11 @@ class PathStatuses(Enum):
 
 class File:
 
-    typeRegex = re.compile('\.[a-zA-Z]+$')
+    typeRegex = re.compile('\.[a-zA-Z0-9]+$')
     
     def __init__(self, name, content=None):
         self._name = name
-        self._type = self.findType(self._name)
+        self.findType(self._name)
         self._content = content
         if self._content is not None:
             self._hash = hashlib.md5(bytes(self._content, 'ascii')).hexdigest()
@@ -102,6 +102,7 @@ class SystemsController:
             IP = utils.randIP()
             self.systemDict[sys] = System(
                 IP,
+                sys,
                 defaultSystems[sys]
                 )
             self.systemLookup[IP] = sys
@@ -109,7 +110,7 @@ class SystemsController:
 
     def getConnected(self, name):
         connected = []
-        for name in self.systemDict[systemName].connected:
+        for name in self.systemDict[name].connected:
             connected.append(self.systemDict[name])
         return connected
 
@@ -149,7 +150,7 @@ class FilePath:
             fileName = self.iterList[-1]
             filePath = self.iterList[:-1]
             status = fileSystem.checkIsValidPath(filePath)
-            if status == 0:
+            if status:
                 directory = fileSystem.getDirectory(filePath)
                 if fileName not in directory.files:
                     self.status = PathStatuses.FILE_NOT_EXIST
@@ -159,6 +160,7 @@ class FilePath:
                     if fileHash is not None:
                         if file.getHash() == fileHash:
                             self.status = PathStatuses.PATH_VALID
+                            self.directory = directory
                             return
                         else:
                             self.status = PathStatuses.INVALID_HASH
@@ -188,8 +190,9 @@ class System:
 
     '''A virtual system'''
 
-    def __init__(self, IP, sysData):
+    def __init__(self, IP, name, sysData):
         self.IP = IP
+        self.name = name
         self.fileSystem = FileSystem(copy.deepcopy(SYSTEM_DEFAULT_FILESYSTEM))
         self.OSManu = utils.randOSCompany()
         self.connected = sysData['connected']
@@ -202,7 +205,7 @@ class System:
         for item in sysData['executables']:
             fileName = commands.comTable[item]
             fileContent = commands.comContent[fileName]
-            binPath.files[item] = File(fileName, fileContent)
+            binPath.files[item] = File(item, fileContent)
 
     def exit(self):
         self.fileSystem.exit()
@@ -226,7 +229,7 @@ class System:
         logPath = FilePath('/log', self.fileSystem)
         if logPath.status != PathStatuses.PATH_VALID:
             self.fileSystem.path.subdirectories['log'] = Directory()
-        logDirectory = self.fileSystem.getDirectory(['log'], True)
+        logDirectory = self.fileSystem.getDirectory(['log'])
         concatenated = '{}@{}-{}'.format(IP, time.strftime('%H:%M:%S'), log)
         fileName = concatenated + '.log'
         logDirectory.subdirectories[fileName] = File(fileName, concatenated)
@@ -272,12 +275,24 @@ class FileSystem:
             self.workDir = self.getDirectory(self.workingDirectory)
             return 0
 
-    def remove(self, path, name):
-        '''Removes the item at the given path'''
-        if name not in path.directory.files:
+    def makeDirectory(self, path, dirName):
+        if dirName in path.directory.subdirectories:
             return -1
         else:
-            del path.directory.files[name]
+            path.directory.subdirectories[dirName] = Directory()
+            self.workDir = self.getDirectory(self.workingDirectory)
+            return 0
+
+    def remove(self, path, name, isDirectory=False):
+        '''Removes the item at the given path'''
+        if isDirectory:
+            contents = path.directory.subdirectories
+        else:
+            contents = path.directory.files
+        if name not in contents:
+            return -1
+        else:
+            del contents[name]
             self.correctWorkingDirectory()
             self.workDir = self.getDirectory(self.workingDirectory)
             return 0
@@ -322,13 +337,13 @@ class FileSystem:
         tempWorkDir = self.getDirectory()
         for count, item in enumerate(pathList):
             if item not in tempWorkDir.subdirectories:
-                return -1
+                return False
             else:
                 tempWorkDir = tempWorkDir.subdirectories[item]
-        return 0
+        return True
 
     def handleFileOutput(self, output, message):
-        outputDir = self.getDirectory(output[2].iterList[:-1], True)
+        outputDir = self.getDirectory(output[2].iterList[:-1])
         name = output[2].iterList[-1]
         if output[0] == commands.OutTypes.FILEOVERWRITE:
             outputDir.files[name].update(name, message)

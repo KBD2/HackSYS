@@ -10,7 +10,7 @@ def save(sysCont):
         pickle.dump(sysCont, file)
 
 def load():
-    if 'saveFile.json' not in os.listdir('saves'):
+    if 'saveFile.pkl' not in os.listdir('saves'):
         return False
     else:
         with open('saves/saveFile.pkl', 'rb') as file:

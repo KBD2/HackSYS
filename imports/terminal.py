@@ -25,7 +25,7 @@ class Terminal:
                 sys.stdout.write('\n')
                 sys.stdout.flush()
         else:
-            self.comCont.outType[1].handleFileOutput(self.comCont.outType, self, message)
+            self.comCont.outType[1].handleFileOutput(self.comCont.outType, message)
         return 0
 
     def get(self, start="", strip=True):
