@@ -1,4 +1,4 @@
-__version__ = '1.14.0'
+__version__ = '1.14.1'
 
 import system, utils
 from colorama import Fore
@@ -160,8 +160,10 @@ class CommandController:
             file = context.files[fileName]
             if file.getHash() in comList:
                 kwargs = {}
-                for switch in comList[file.getHash()].meta['switches']:
-                    kwargs[switch] = False
+                switches = comList[file.getHash()].meta['switches']
+                if switches is not None:
+                    for switch in switches:
+                        kwargs[switch] = False
                 for switch in command.switches:
                     if switch in kwargs:
                         kwargs[switch] = True
