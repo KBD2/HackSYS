@@ -1,19 +1,21 @@
-__version__ = '1.0.0'
+__version__ = '1.1.0'
 
 import json
 import os
 import commands, system
 import pickle
+import gzip
 
 def save(sysCont):
-    with open('saves/saveFile.pkl', 'wb') as file:
-        pickle.dump(sysCont, file)
+    with gzip.open('saves/saveFile.dat', 'wb') as file:
+        data = pickle.dumps(sysCont)
+        file.write(data)
 
 def load():
-    if 'saveFile.pkl' not in os.listdir('saves'):
+    if 'saveFile.dat' not in os.listdir('saves'):
         return False
     else:
-        with open('saves/saveFile.pkl', 'rb') as file:
+        with gzip.open('saves/saveFile.dat', 'rb') as file:
             sysCont = pickle.load(file)
         return sysCont
         

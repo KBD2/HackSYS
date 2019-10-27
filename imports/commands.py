@@ -1,4 +1,4 @@
-__version__ = '1.13.0'
+__version__ = '1.14.0'
 
 import system, utils
 from colorama import Fore
@@ -8,189 +8,214 @@ import json
 import time
 from enum import Enum
 import os
+import copy
+import re
 
-class OutTypes(Enum):
-    TERMINAL = 0
-    FILEOVERWRITE = 1
-    FILEAPPEND = 2
+class CommandStatuses(Enum):
+    COMMAND_VALID = 0
+    COMMAND_INVALID = 1
+    INVALID_NO_OUTFILE = 2
+    INVALID_ORDER_OUT = 3
+    INVALID_ORDER_SWITCH = 4
+    INVALID_MULTIPLE_OUT = 5
+
+class Command:
+
+    switchRegex = re.compile('-[a-zA-Z0-9]+')
+    singleQuoteRegex = re.compile('(\'.*?\')')
+    doubleQuoteRegex = re.compile('\".*?\"')
+    outputRegex = re.compile('>{1,2}')
+    miscRegex = re.compile('[^\s\'\"]+')
+    partsRegex = re.compile('(-[^\s\'\"]+)|(\".*?\")|(\'.*?\')|>{1,2}|([^\s\'\"]+)')
+
+    def __init__(self, rawCommand):
+        self.command = ""
+        self.switches = []
+        self.args = []
+        self.outFile = None
+        self.outType = None
+        state = 0
+        for c, item in enumerate(re.finditer(self.partsRegex, rawCommand)):
+            itemStr = item.group()
+            switchMatch = self.switchRegex.match(itemStr)
+            miscMatch = self.miscRegex.match(itemStr)
+            singleMatch = self.singleQuoteRegex.match(itemStr)
+            doubleMatch = self.doubleQuoteRegex.match(itemStr)
+            outMatch = self.outputRegex.match(itemStr)
+            if c == 0:
+                if miscMatch:
+                    self.command = itemStr
+                    state = 1
+                else:
+                    self.status = CommandStatuses.COMMAND_INVALID
+                    return
+            elif switchMatch:
+                if state != 1:
+                    self.status = CommandStatuses.INVALID_ORDER_SWITCH
+                    return
+                self.switches.append(itemStr)
+            elif outMatch:
+                if state not in [1,2]:
+                    self.status = CommandStatuses.INVALID_ORDER_OUT
+                    return
+                state = 3
+                self.outType = itemStr.count('>')
+            elif miscMatch or singleMatch or doubleMatch:
+                if state == 1:
+                    state = 2
+                elif state == 4:
+                    self.status = CommandStatuses.INVALID_MULTIPLE_OUT
+                    return
+                elif state == 3:
+                    state = 4
+                    self.outFile = itemStr
+                if state == 2:
+                    if miscMatch:
+                        self.args.append(itemStr)
+                    else:
+                        self.args.append(itemStr[1:-1])
+        if self.outType is not None and self.outFile is None:
+            self.status = CommandStatuses.INVALID_NO_OUTFILE
+        else:
+            self.status = CommandStatuses.COMMAND_VALID
+            return
+                
 
 class CommandController:
 
     '''A wrapper to make parsing, validating, and executing commands easier'''
 
     def __init__(self):
-        self.outType = [OutTypes.TERMINAL]
+        self.outputType = 0
 
-    def feed(self, command, sysCont, sys, terminal):
-        if command == '':
+    def feed(self, commandRaw, sysCont, sys, terminal):
+        systemPath = system.FilePath(
+            '/sys/command.sys',
+            sys.fileSystem,
+            True,
+            system.sysFileHashes['command.sys']
+            )
+        if systemPath.status != system.PathStatuses.PATH_VALID:
+            terminal.error("COMMAND.SYS ERROR")
+            return -1
+        if commandRaw == '':
             return 0
-        command = self.handleSpaces(command)
-        commands = command.split('¶')
+        commandsRaw = self.getRawCommands(commandRaw)
+        commands = []
+        for rawCommand in commandsRaw:
+            commands.append(Command(rawCommand))
         for command in commands:
-            #TODO: Sack up and fix this mess
-            if '|' in command:
-                outputType = command.count('|')
-                outputFile = command[len(command) - command[-1::-1].find('|'):]
-                outputFile = ''.join(char for char in outputFile if char not in [
-                    '§',
-                    '"',
-                    "'"
-                    ])
-                outputPath = system.FilePath(outputFile, sys.fileSystem, True)
-                if outputPath.status == system.PathStatuses.FILE_NOT_EXIST and outputType == 2:
-                    terminal.error("File does not exist!")
-                    return -1
-                elif outputPath.status != system.PathStatuses.PATH_VALID:
-                    terminal.error("Invalid output path!")
-                    return -1
-                else:
-                    outputFileName = outputPath.iterList[-1]
-                    outputDirectory = sys.fileSystem.getDirectory(outputPath.iterList[:-1])
-                    if outputFileName not in outputDirectory.files:
-                        sys.fileSystem.make(
-                            system.FilePath(
-                                outputFile[:-len(outputFileName)],
-                                sys.fileSystem
-                                ),
-                            outputFileName,
-                            fileType
-                            )
-                        sys.addLog(sys.IP, "Created " + '/' + '/'.join(
-                            outputPath.iterList
-                            ))
-                        sys.fileSystem.workDir = sys.fileSystem.getDirectory(sys.fileSystem.workingDirectory)
-                    if outputType == 1:
-                        self.outType = [OutTypes.FILEOVERWRITE, sys.fileSystem, outputPath, sys]
-                    elif outputType == 2:
-                        self.outType = [OutTypes.FILEAPPEND, sys.fileSystem, outputPath, sys]
-                command = command[:command.find('|')]
-            parts = command.split('§')
-            count = 0
-            while count < len(parts):
-                if parts[count] == '':
-                    del parts[count]
-                else:
-                    count += 1
-            if len(parts) == 0:
-                return 0
-            partCommand = parts[0]
-            if partCommand in sys.aliasTable:
-                try:
-                    return self.feed(
-                        sys.aliasTable[partCommand] + ' ' + ' '.join(parts[1:]),
-                        sysCont,
-                        sys,
-                        terminal
-                        )
-                except RecursionError:
-                    terminal.error("Too much recursion!")
-                    return -1
-            partCommandFileName = partCommand + '.bin'
-            userFileSystem = sysCont.userSystem.fileSystem.path
-            userPath = system.FilePath(
-                '/sys/command.sys',
-                sysCont.userSystem.fileSystem,
-                True,
-                system.sysFileHashes['command.sys']
-                )
-            sysPath = system.FilePath(
-                '/sys/command.sys',
-                sys.fileSystem,
-                True,
-                system.sysFileHashes['command.sys']
-                )
-            if sysPath.status == system.PathStatuses.INVALID_HASH:
-                terminal.error("SYSTEM ERROR: INVALID COMMAND EXECUTABLE")
-                return -1
-            elif sysPath.status != system.PathStatuses.PATH_VALID:
-                terminal.error("SYSTEM ERROR: CANNOT FIND COMMAND EXECUTABLE")
-                return -1
-            binPath = system.FilePath(
-                '/bin/' + partCommandFileName,
+            self.outputType = 0
+            if command.status == CommandStatuses.COMMAND_INVALID:
+                terminal.error("Invalid command!")
+                continue
+            elif command.status == CommandStatuses.INVALID_NO_OUTFILE:
+                terminal.error("No output file has been provided!")
+                continue
+            elif command.status == CommandStatuses.INVALID_ORDER_OUT:
+                terminal.error("Invalid output symbol placement!")
+                continue
+            elif command.status == CommandStatuses.INVALID_ORDER_SWITCH:
+                terminal.error("Invalid switch placement!")
+                continue
+            elif command.status == CommandStatuses.INVALID_MULTIPLE_OUT:
+                terminal.error("Multiple output files provided!")
+                continue
+            if command.command in sys.aliasTable:
+                self.feed(
+                    sys.aliasTable[command.command]
+                      + ' '
+                      + ' '.join(command.switches)
+                      + ' '.join(command.args)
+                      + ' '
+                      + {
+                          '1': '>',
+                          '2': '>>'
+                          }[str(command.outType)] if command.outType is not None else ''
+                      + ' '
+                      + command.outFile if command.outFile is not None else '',
+                    sysCont,
+                    sys,
+                    terminal
+                    )
+                continue
+            fileName = command.command + '.bin'
+            contextTest = system.FilePath(
+                './' + fileName,
                 sys.fileSystem,
                 True
                 )
-            if partCommandFileName in sys.fileSystem.workDir.files:
-                execDir = sys.fileSystem.workDir
-                file = execDir.files[partCommandFileName]
-            elif binPath.status != system.PathStatuses.PATH_VALID:
-                terminal.error("Cannot find {} executable file!".format(partCommand))
-                return -1
+            systemTest = system.FilePath(
+                '/bin/' + fileName,
+                sys.fileSystem,
+                True
+                )
+            if contextTest.status == system.PathStatuses.PATH_VALID:
+                context = contextTest.directory
+            elif systemTest.status == system.PathStatuses.PATH_VALID:
+                context = systemTest.directory
             else:
-                file = sys.fileSystem.getDirectory(['bin']).files[partCommandFileName]
-            if file.getHash() not in comList:
-                terminal.error(partCommandFileName + " is not a valid executable file!")
-                return -1
+                terminal.error("Cannot find {} executable!".format(command.command))
+                continue
+            file = context.files[fileName]
+            if file.getHash() in comList:
+                kwargs = {}
+                for switch in comList[file.getHash()].meta['switches']:
+                    kwargs[switch] = False
+                for switch in command.switches:
+                    if switch in kwargs:
+                        kwargs[switch] = True
+                    else:
+                        terminal.error("{} is not a switch!".format(switch))
+                if command.outType is not None:
+                    outFileTest = system.FilePath(command.outFile, sys.fileSystem, True)
+                    if outFileTest.status != system.PathStatuses.PATH_VALID:
+                        if command.outType == 2:
+                            terminal.error("Output file does not exist!")
+                            continue
+                        else:
+                            filePath = system.FilePath(command.outFile, sys.fileSystem, True)
+                            sys.fileSystem.make(filePath, command.outFile.split('/')[-1])
+                            sys.addLog(sys.IP, 'Created {}'.format(command.outFile))
+                    self.outputType = command.outType
+                    self.contextFileSystem = sys.fileSystem
+                    self.contextOutputPath = system.FilePath(command.outFile, sys.fileSystem, True)
+                comList[file.getHash()].run(
+                    sysCont,
+                    sys,
+                    terminal,
+                    self,
+                    *command.args,
+                    **kwargs
+                    )
             else:
-                command = comList[file.getHash()]
-                comSwitches = command.meta['switches']
-                params = []
-                switches = {}
-                count = 1
-                if comSwitches:
-                    for part in parts[1:]:
-                        if part[0] == '-':
-                            if part in comSwitches:
-                                switches[part] = True
-                            else:
-                                terminal.error("Not a valid switch!")
-                                return -1
-                        else:
-                            break
-                        count += 1
-                    for switch in comSwitches:
-                        if switch not in switches:
-                            switches[switch] = False
-                for part in parts[count:]:
-                    if len(part) == 0:
-                        continue
-                    elif part[0] == '-':
-                        if not comSwitches:
-                            terminal.error("This command does not have any switches!")
-                            return -1
-                        else:
-                            terminal.error("Switches must come before parameters!")
-                            return -1
-                    else:
-                        params.append(part)
-                    count += 1
-                if len(params) < command.meta['params'][0] or len(params) > command.meta['params'][1]:
-                    terminal.error("Incorrect number of parameters!")
-                    return -1
-                else:
-                    ret = command.run(sysCont, sys, terminal, self, *params, **switches)
-                    if ret == 99:
-                        return ret
-                    else:
-                        continue
+                terminal.error("Error in {} executable!".format(fileName))
 
-    def handleSpaces(self, string):
-        spaceHolder = '§'
-        lastQuote = None
-        for count, char in enumerate(string):
-            if char == '"' or char == "'":
-                if not lastQuote:
-                    lastQuote = char
-                    string = string[:count] + '§' + string[count + 1:]
-                else:
-                    if lastQuote == char:
-                        lastQuote = None
-                        string = string[:count] + '§' + string[count + 1:]
-            elif char == ' ' and not lastQuote:
-                string = string[:count] + '§' + string[count + 1:]
+    def getRawCommands(self, commandRaw):
+        commandsRaw = []
+        buffer = ""
+        string = None
+        for char in commandRaw:
+            if char == '"':
+                if string == '"':
+                    string = None
+                elif string == None:
+                    string = '"'
+            elif char == '\'':
+                if string == '\'':
+                    string = None
+                elif string == None:
+                    string = '\''
             elif char == ';':
-                if lastQuote:
-                    continue
-                else:
-                    string = string[:count] + '¶' + string[count + 1:]
-                    continue
-            elif char == '>':
-                if lastQuote:
-                    continue
-                else:
-                    string = string[:count] + '|' + string[count + 1:]
-                    continue
-        return string
+                if string is None:
+                    commandsRaw.append(buffer)
+                    buffer = ""
+            else:
+                buffer += char
+        if buffer != "":
+            commandsRaw.append(buffer)
+        return commandsRaw
+                    
 
 class HelpCommand:
     
@@ -501,31 +526,29 @@ he specified path.",
             path = system.FilePath(args[0][:-len(name)], sys.fileSystem)
         else:
             path = system.FilePath(args[0], sys.fileSystem, True)
-        if path.status < 0:
+        if path.status != system.PathStatuses.PATH_VALID:
             terminal.error("{} is not a valid path!".format(args[0]))
             return -1
         else:
             if name == '*':
-                directory = sys.fileSystem.getDirectory(path, True)
-                items = directory.items()
+                directory = copy.deepcopy(sys.fileSystem.getDirectory(path))
+                items = directory.files.items()
                 for key, item in items:
                     ret = sys.fileSystem.remove(
                         path,
-                        key,
-                        blacklist=[system.FileTypes.DIR.value]
+                        key
                         )
                     if ret == 0:
                         terminal.out("Removed " + item._name)
                         if item.getType() != 'LOG':
-                            sys.addLog(sys.IP, "Removed " + item)
+                            sys.addLog(sys.IP, "Removed " + key)
                 return 0
             else:
                 path = system.FilePath(args[0][:-len(name)], sys.fileSystem)
-                file = path.directory[name]
+                file = path.directory.files[name]
                 sys.fileSystem.remove(
                     path,
-                    name,
-                    blacklist=[system.FileTypes.DIR.value]
+                    name
                     )
                 if file.getType() != 'LOG':
                     sys.addLog(sys.IP, "Removed " + name)
@@ -547,13 +570,13 @@ in the specified path.",
             path = system.FilePath(args[0][:-len(name)], sys.fileSystem)
         else:
             path = system.FilePath(args[0], sys.fileSystem)
-        if path.status < 0:
+        if path.status != system.PathStatuses.PATH_VALID:
             terminal.error("{} is not a valid path!".format(args[0]))
             return -1
         else:
             if name == '*':
-                directory = sys.fileSystem.getDirectory(path)
-                items = list(directory.keys())
+                directory = copy.deepcopy(sys.fileSystem.getDirectory(path))
+                items = list(directory.subdirectories.keys())
                 for item in items:
                     ret = sys.fileSystem.remove(path, item, True)
                     if ret == 0:

@@ -1,4 +1,4 @@
-__version__ = 'ALPHA 2.4.0'
+__version__ = 'ALPHA 2.4.1'
 
 import sys as sysModule
 import time
@@ -21,7 +21,7 @@ if not sysCont:
     sysCont = system.SystemsController()
 #If user broke their system then quit
 bootPath = system.FilePath(
-    'sys/boot.sys',
+    '/sys/boot.sys',
     sysCont.userSystem.fileSystem,
     True,
     system.sysFileHashes['boot.sys']
@@ -54,7 +54,7 @@ while True:
         while True: continue
     userInput = terminal.get(sysCont.userSystem.IP + sysCont.userSystem.fileSystem.getPath())
     ret = comCont.feed(userInput, sysCont, sysCont.userSystem, terminal)
-    comCont.outType = [commands.OutTypes.TERMINAL]
+    comCont.outputType = 0
     terminal.out('')
     if ret == 99:
         sysModule.exit()

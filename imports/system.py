@@ -1,4 +1,4 @@
-__version__ = '3.0.0'
+__version__ = '3.0.1'
 
 '''Module to create a virtual system with an assigned IP, independent
 filesystem, and statuses, must be loaded along with other imports'''
@@ -152,6 +152,7 @@ class FilePath:
             status = fileSystem.checkIsValidPath(filePath)
             if status:
                 directory = fileSystem.getDirectory(filePath)
+                self.directory = directory
                 if fileName not in directory.files:
                     self.status = PathStatuses.FILE_NOT_EXIST
                     return
@@ -160,14 +161,12 @@ class FilePath:
                     if fileHash is not None:
                         if file.getHash() == fileHash:
                             self.status = PathStatuses.PATH_VALID
-                            self.directory = directory
                             return
                         else:
                             self.status = PathStatuses.INVALID_HASH
                             return
                     else:
                         self.status = PathStatuses.PATH_VALID
-                        self.directory = directory
                         return
             else:
                 self.status = PathStatuses.PATH_NOT_EXIST
@@ -232,7 +231,7 @@ class System:
         logDirectory = self.fileSystem.getDirectory(['log'])
         concatenated = '{}@{}-{}'.format(IP, time.strftime('%H:%M:%S'), log)
         fileName = concatenated + '.log'
-        logDirectory.subdirectories[fileName] = File(fileName, concatenated)
+        logDirectory.files[fileName] = File(fileName, concatenated)
         self.fileSystem.workDirContents = self.fileSystem.getDirectory(
             self.fileSystem.workingDirectory
             )
@@ -342,16 +341,15 @@ class FileSystem:
                 tempWorkDir = tempWorkDir.subdirectories[item]
         return True
 
-    def handleFileOutput(self, output, message):
-        outputDir = self.getDirectory(output[2].iterList[:-1])
-        name = output[2].iterList[-1]
-        if output[0] == commands.OutTypes.FILEOVERWRITE:
-            outputDir.files[name].update(name, message)
-        elif output[0] == commands.OutTypes.FILEAPPEND:
-            if outputDir.files[name].getContent() is not None:
-                outputDir.files[name].update(name, outputDir.files[name].getContent() + message)
+    def handleFileOutput(self, outType, output, message):
+        name = output.iterList[-1]
+        if outType == 1:
+            output.directory.files[name].update(name, message)
+        elif outType == 2:
+            if output.directory.files[name].getContent() is not None:
+                output.directory.files[name].update(name, output.directory.files[name].getContent() + message)
             else:
-                outputDir.files[name].update(name, message)
+                output.directory.files[name].update(name, message)
         return 0
 
 def getSysHash(fileName):

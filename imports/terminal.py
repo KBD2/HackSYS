@@ -1,4 +1,4 @@
-__version__ = '1.1.2'
+__version__ = '1.1.3'
 
 import sys
 import time
@@ -11,7 +11,7 @@ class Terminal:
     
     def out(self, message, colCode=Fore.GREEN, slowWrite=True, insertNewline=True):
         assert type(message) is str # stdout only wants str
-        if self.comCont.outType[0] == commands.OutTypes.TERMINAL:
+        if self.comCont.outputType == 0:
             if slowWrite:
                 sys.stdout.write(colCode)
                 for char in message:
@@ -25,7 +25,11 @@ class Terminal:
                 sys.stdout.write('\n')
                 sys.stdout.flush()
         else:
-            self.comCont.outType[1].handleFileOutput(self.comCont.outType, message)
+            self.comCont.contextFileSystem.handleFileOutput(
+                self.comCont.outputType,
+                self.comCont.contextOutputPath,
+                message
+                )
         return 0
 
     def get(self, start="", strip=True):
