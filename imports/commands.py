@@ -1,4 +1,4 @@
-__version__ = '1.14.2'
+__version__ = '1.14.21'
 
 import system, utils
 from colorama import Fore
@@ -180,7 +180,7 @@ class CommandController:
                     self.outputType = command.outType
                     self.contextFileSystem = sys.fileSystem
                     self.contextOutputPath = system.FilePath(command.outFile, sys.fileSystem, True)
-                comList[file.getHash()].run(
+                ret = comList[file.getHash()].run(
                     sysCont,
                     sys,
                     terminal,
@@ -188,6 +188,8 @@ class CommandController:
                     *command.args,
                     **kwargs
                     )
+                if ret == 99:
+                    return 99
             else:
                 terminal.error("Error in {} executable!".format(fileName))
 
