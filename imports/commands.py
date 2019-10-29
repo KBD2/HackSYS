@@ -1,4 +1,4 @@
-__version__ = '1.14.1'
+__version__ = '1.14.2'
 
 import system, utils
 from colorama import Fore
@@ -29,12 +29,14 @@ class Command:
     partsRegex = re.compile('(-[^\s\'\"]+)|(\".*?\")|(\'.*?\')|>{1,2}|([^\s\'\"]+)')
 
     def __init__(self, rawCommand):
+        self.rawCommand = rawCommand
         self.command = ""
         self.switches = []
         self.args = []
         self.outFile = None
         self.outType = None
         state = 0
+        
         for c, item in enumerate(re.finditer(self.partsRegex, rawCommand)):
             itemStr = item.group()
             switchMatch = self.switchRegex.match(itemStr)
@@ -122,22 +124,11 @@ class CommandController:
                 terminal.error("Multiple output files provided!")
                 continue
             if command.command in sys.aliasTable:
-                self.feed(
+                aliased = command.rawCommand.replace(
+                    command.command,
                     sys.aliasTable[command.command]
-                      + ' '
-                      + ' '.join(command.switches)
-                      + ' '.join(command.args)
-                      + ' '
-                      + {
-                          '1': '>',
-                          '2': '>>'
-                          }[str(command.outType)] if command.outType is not None else ''
-                      + ' '
-                      + command.outFile if command.outFile is not None else '',
-                    sysCont,
-                    sys,
-                    terminal
                     )
+                self.feed(aliased, sysCont, sys, terminal)
                 continue
             fileName = command.command + '.bin'
             contextTest = system.FilePath(
@@ -159,6 +150,12 @@ class CommandController:
                 continue
             file = context.files[fileName]
             if file.getHash() in comList:
+                params = comList[file.getHash()].meta['params']
+                tooFewArgs = len(command.args) < params[0]
+                tooManyArgs = len(command.args) > params[1]
+                if tooFewArgs or tooManyArgs:
+                    terminal.error("Incorrect number of parameters!")
+                    continue
                 kwargs = {}
                 switches = comList[file.getHash()].meta['switches']
                 if switches is not None:
@@ -169,6 +166,7 @@ class CommandController:
                         kwargs[switch] = True
                     else:
                         terminal.error("{} is not a switch!".format(switch))
+                        continue
                 if command.outType is not None:
                     outFileTest = system.FilePath(command.outFile, sys.fileSystem, True)
                     if outFileTest.status != system.PathStatuses.PATH_VALID:
@@ -203,11 +201,13 @@ class CommandController:
                     string = None
                 elif string == None:
                     string = '"'
+                buffer += char
             elif char == '\'':
                 if string == '\'':
                     string = None
                 elif string == None:
                     string = '\''
+                buffer += char
             elif char == ';':
                 if string is None:
                     commandsRaw.append(buffer)
