@@ -357,6 +357,16 @@ th. Use '-p' to pretty print.",
             return -1
         else:
             out = sys.fileSystem.output(pathNoFile, name)
+            colour = Fore.GREEN
+            cTable = {
+                'c': Fore.CYAN,
+                'y': Fore.YELLOW,
+                'w': Fore.WHITE,
+                'r': Fore.RED,
+                'g': Fore.GREEN,
+                'b': Fore.BLUE,
+                'm': Fore.MAGENTA
+                }
             if kwargs['-p']:
                 skip = False
                 for count, char in enumerate(out):
@@ -366,18 +376,24 @@ th. Use '-p' to pretty print.",
                     if char == '\\':
                         if out[count + 1] == 'n':
                             skip = True
-                            terminal.out('', Fore.GREEN, False)
+                            terminal.out('', colour, False)
                         elif out[count + 1] == 't':
                             skip = True
-                            terminal.out('\t', Fore.GREEN, False, False)
+                            terminal.out('\t', colour, False, False)
                         elif out[count + 1] == '\\':
                             skip = True
-                            terminal.out('\\', Fore.GREEN, True, False)
+                            terminal.out('\\', colour, True, False)
                         else:
                             terminal.error("\nUnrecognised escape sequence!")
                             return -1
+                    elif char == '&':
+                        if out[count + 1] in cTable:
+                            skip = True
+                            colour = cTable[out[count + 1]]
+                        else:
+                            terminal.out('&', colour, True, False)
                     else:
-                        terminal.out(char, Fore.GREEN, True, False)
+                        terminal.out(char, colour, True, False)
                 terminal.out('')
                 return 0
             else:
